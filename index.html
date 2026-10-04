@@ -1,0 +1,1009 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>Bodyflight Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: Werkbank mit drei Spalten – Körper-Regler | 3D-Flugraum | Luft & Messwerte. Am Handy gestapelt, Flugraum bleibt oben kleben. */
+:root{
+  --bg:#e8edf0; --panel:#f7f9fa; --panel-2:#eef2f5; --fg:#13202a; --muted:#566874; --line:#d0d9df; --accent:#1c5bc9; --accent-ink:#ffffff;
+  --sky-top:#9fc9e8; --sky-bot:#e4f0f7;
+  --suit:#1f4cb0; --stripe:#ff7a1a; --left:#0e9686; --right:#c93a76; --rig:#1c2530; --helmet:#2a4fc0; --visor:#1b2630;
+  --wind-fast:#2671b6; --wind-slow:#de651f; --grid:#7f97a8;
+  --ok:#2c8f52; --warn:#c98606; --bad:#cc3434;
+  --f-display:"Saira Condensed","Arial Narrow",sans-serif;
+  --f-body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0c1319; --panel:#121c24; --panel-2:#17232d; --fg:#e2ebf0; --muted:#8d9fab; --line:#24333e; --accent:#6ea6ff; --accent-ink:#0c1319;
+  --sky-top:#0a1828; --sky-bot:#1d3247;
+  --suit:#2353bd; --stripe:#ff8126; --left:#22c2ae; --right:#ec5c98; --rig:#151c24; --helmet:#2f55c8; --visor:#0b1218;
+  --wind-fast:#7cc3ff; --wind-slow:#ffa55a; --grid:#5d7486;
+  --ok:#4cc27a; --warn:#f0b13a; --bad:#ff6b6b; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0c1319; --panel:#121c24; --panel-2:#17232d; --fg:#e2ebf0; --muted:#8d9fab; --line:#24333e; --accent:#6ea6ff; --accent-ink:#0c1319;
+  --sky-top:#0a1828; --sky-bot:#1d3247;
+  --suit:#2353bd; --stripe:#ff8126; --left:#22c2ae; --right:#ec5c98; --rig:#151c24; --helmet:#2f55c8; --visor:#0b1218;
+  --wind-fast:#7cc3ff; --wind-slow:#ffa55a; --grid:#5d7486;
+  --ok:#4cc27a; --warn:#f0b13a; --bad:#ff6b6b; color-scheme:dark }
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--f-body);padding-inline:0}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit}
+.app{display:grid;height:100%;grid-template-columns:300px minmax(0,1fr) 312px;grid-template-rows:auto minmax(0,1fr);
+  grid-template-areas:"top top top" "left stage right";gap:12px;padding-block:12px;padding-inline:16px}
+.top{grid-area:top;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.brand{font-family:var(--f-display);font-weight:700;font-size:24px;letter-spacing:.02em;text-transform:uppercase;display:flex;align-items:center;gap:10px;line-height:1}
+.brand svg{flex:none}
+.brand small{font-family:var(--f-body);font-weight:500;font-size:12px;letter-spacing:0;text-transform:none;color:var(--muted)}
+.disc{display:flex;gap:4px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px}
+.disc button{border:0;background:transparent;padding:6px 12px;border-radius:7px;cursor:pointer;font-weight:600;font-size:13px;display:flex;gap:6px;align-items:center}
+.disc button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.disc button:disabled{cursor:not-allowed;color:var(--muted);font-weight:500}
+/* removed soon tag */ .disc button .soon{font-size:10px;text-transform:uppercase;letter-spacing:.08em;border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.disc button:not(:disabled):not([aria-pressed="true"]):hover{background:var(--panel-2)}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow-y:auto;min-width:0}
+.left{grid-area:left}.right{grid-area:right}
+.sec{padding:14px 16px;border-bottom:1px solid var(--line);display:grid;gap:10px}
+.sec:last-child{border-bottom:0}
+.sec h2{margin:0;font-family:var(--f-display);font-weight:600;font-size:15px;letter-spacing:.09em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sec h2 .aside{font-family:var(--f-body);font-size:12px;letter-spacing:0;text-transform:none;font-weight:500;color:var(--muted)}
+.hint{color:var(--muted);font-size:12px;margin:0;line-height:1.4}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--panel-2);border-radius:999px;padding:4px 10px;font-size:12.5px;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+.row{display:grid;gap:2px}
+.rl{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+.rl output{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.side{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:4px;min-width:0}
+.side output{grid-column:1/-1;font-family:var(--f-mono);font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:-4px}
+.tag{font-family:var(--f-display);font-weight:700;font-size:12px;width:16px;height:16px;border-radius:4px;display:grid;place-items:center;color:#fff}
+.tag.l{background:var(--left)}.tag.r{background:var(--right)}
+.toggle{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.toggle input{accent-color:var(--accent);width:16px;height:16px}
+
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;margin:0;cursor:pointer;min-width:0}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:var(--line)}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);margin-top:-6px;border:2px solid var(--panel)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--accent);border:2px solid var(--panel)}
+.side.l input::-webkit-slider-thumb{background:var(--left)}.side.r input::-webkit-slider-thumb{background:var(--right)}
+.side.l input::-moz-range-thumb{background:var(--left)}.side.r input::-moz-range-thumb{background:var(--right)}
+input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;border-radius:6px;padding:6px;cursor:pointer;font-weight:600;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--panel);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.btn{border:1px solid var(--line);background:var(--panel-2);border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:600;font-size:13px}
+.btn:hover{border-color:var(--accent)}
+
+.stage{grid-area:stage;position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);
+  background:linear-gradient(180deg,var(--sky-top),var(--sky-bot));min-height:0;touch-action:none}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+#gl:active{cursor:grabbing}
+.hud{position:absolute;display:flex;gap:6px;pointer-events:none}
+.hud > *{pointer-events:auto}
+.hud.tl{top:12px;left:12px;flex-direction:column;gap:2px}
+.hud.tr{top:12px;right:12px}
+.hud.bl{bottom:12px;left:12px;flex-wrap:wrap}
+.hud.bc{bottom:12px;right:12px}
+.glass{background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:8px}
+.hud .btn{background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(8px)}
+.alt{padding:6px 10px}
+.alt .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600}
+.alt .v{font-family:var(--f-display);font-weight:700;font-size:26px;line-height:1;font-variant-numeric:tabular-nums}
+.alt .v small{font-size:14px;font-weight:600;margin-left:3px}
+.flash{font-size:12px;font-weight:600;color:var(--accent);padding:2px 0 0}
+.readout{display:flex;padding:0}
+.readout div{padding:6px 12px;border-right:1px solid var(--line);min-width:96px}
+.readout div:last-child{border-right:0}
+.readout .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600}
+.readout .v{font-family:var(--f-display);font-weight:700;font-size:20px;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.readout .s{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.stabT .v{display:flex;align-items:center;gap:6px}
+.stabT .v::before{content:"";width:9px;height:9px;border-radius:50%;background:currentColor;flex:none}
+.bar{height:4px;border-radius:2px;background:var(--line);margin:3px 0 2px;overflow:hidden;min-width:70px}
+.bar i{display:block;height:100%;width:0;background:currentColor;border-radius:2px;transition:width .2s}
+.legend{padding:6px 10px;font-size:12px;display:flex;gap:10px;align-items:center}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:-1px}
+
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.meter{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.meter .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600}
+.meter .v{font-family:var(--f-display);font-weight:700;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums}
+.meter .v small{font-size:13px;font-weight:600;margin-left:2px}
+.meter .s{font-size:12px;color:var(--muted);min-height:1.4em}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;border-radius:999px;padding:1px 8px;border:1px solid currentColor}
+.why{margin:0;padding:0;list-style:none;display:grid;gap:6px;font-size:13px}
+.why li{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:start}
+.why li b{font-weight:600}
+.why .ic{width:18px;height:18px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--muted);font-family:var(--f-mono)}
+#mini{width:100%;height:auto;aspect-ratio:16/10;max-width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;display:block}
+.foot{font-size:11.5px;color:var(--muted)}
+
+@media (max-width: 920px){
+  html,body{height:auto}
+  .app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto;grid-template-areas:"top" "stage" "left" "right";height:auto}
+  .stage{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;height:52vh;min-height:300px}
+  .panel{overflow:visible}
+  .readout{width:100%}
+  .readout > div{flex:1;min-width:0;padding:5px 7px}
+  .readout .s{white-space:normal;font-size:10.5px;line-height:1.25}
+  .bar{min-width:0}
+  .readout .v{font-size:15px}
+  .readout .k{font-size:9px;letter-spacing:.03em}
+  .readout{overflow:hidden}
+  .hud.bc{left:12px;right:12px;bottom:10px}
+  .hud.bl{display:none}
+  .legend{display:none}
+}
+@media (prefers-reduced-motion: reduce){ *{scroll-behavior:auto} }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="13.5" fill="none" stroke="var(--accent)" stroke-width="2"/><path d="M15 6v18M6 15h18" stroke="var(--fg)" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="15" r="3.2" fill="var(--suit)"/></svg>
+      <span>Bodyflight Lab<br><small>Körperhaltung im Freifall verstehen</small></span>
+    </div>
+    <nav class="disc" id="disc" aria-label="Disziplin"></nav>
+  </header>
+
+  <aside class="panel left" aria-label="Körperhaltung">
+    <section class="sec">
+      <h2>Lernsituationen</h2>
+      <div class="chips" id="presets"></div>
+      <p class="hint" id="presetHint">Wähle eine Haltung oder verändere die Gelenke unten. Die Figur reagiert sofort.</p>
+    </section>
+    <section class="sec" id="secTrunk"><h2>Rumpf &amp; Kopf</h2></section>
+    <section class="sec" id="secArms"><h2>Arme <label class="toggle aside"><input type="checkbox" id="linkArms" checked> Links = Rechts</label></h2></section>
+    <section class="sec" id="secLegs"><h2>Beine <label class="toggle aside"><input type="checkbox" id="linkLegs" checked> Links = Rechts</label></h2></section>
+  </aside>
+
+  <main class="stage" id="stage">
+    <canvas id="gl" aria-label="3D-Ansicht des Springers im Luftstrom"></canvas>
+    <div class="hud tl">
+      <div class="glass alt"><div class="k" id="altK">Höhe</div><div class="v" id="altV">4000<small>m</small></div></div>
+      <div class="flash" id="flash"></div>
+    </div>
+    <div class="hud tr">
+      <button class="btn" id="btnPause">Pause</button>
+      <button class="btn" id="btnReset">Neu starten</button>
+    </div>
+    <div class="hud bl" id="views">
+      <button class="btn" data-v="side">Seite</button>
+      <button class="btn" data-v="front">Vorne</button>
+      <button class="btn" data-v="top">Oben</button>
+      <button class="btn" data-v="bottom">Unten</button>
+    </div>
+    <div class="hud bc">
+      <div class="glass readout">
+        <div><div class="k">Fallrate</div><div class="v" id="hFall">–</div><div class="s" id="hFallS">&nbsp;</div></div>
+        <div><div class="k">Drift</div><div class="v" id="hDrift">–</div><div class="s" id="hDriftS">&nbsp;</div></div>
+        <div><div class="k">Drehung</div><div class="v" id="hTurn">–</div><div class="s" id="hTurnS">&nbsp;</div></div>
+        <div class="stabT"><div class="k">Stabilität</div><div class="v" id="hStab">–</div><div class="bar"><i id="hStabBar"></i></div><div class="s" id="hStabS">&nbsp;</div></div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="panel right" aria-label="Luft und Messwerte">
+    <section class="sec">
+      <h2>Was passiert</h2>
+      <div class="meters">
+        <div class="meter"><div class="k">Neigung</div><div class="v" id="rTilt">–</div><div class="s" id="rTiltS"></div></div>
+        <div class="meter"><div class="k" id="rEqK">Schwebt bei</div><div class="v" id="rEq">–</div><div class="s" id="rEqS"></div></div>
+      </div>
+      <ul class="why" id="why"></ul>
+      <canvas id="mini" width="560" height="350" aria-label="Flugspur von oben"></canvas>
+      <p class="hint" id="miniHint">Flugspur von oben, Norden oben.</p>
+    </section>
+    <section class="sec">
+      <h2>Luft</h2>
+      <div class="seg" id="mode"><button data-m="free" aria-pressed="true">Freifall</button><button data-m="tunnel" aria-pressed="false">Windtunnel</button></div>
+      <div id="airCtl" style="display:grid;gap:10px"></div>
+      <p class="hint" id="airHint"></p>
+    </section>
+    <section class="sec">
+      <h2>Springer</h2>
+      <div id="jumperCtl" style="display:grid;gap:10px"></div>
+    </section>
+    <section class="sec">
+      <h2>Anzeige</h2>
+      <label class="toggle"><input type="checkbox" id="tFlow" checked> Luftstrom</label>
+      <label class="toggle"><input type="checkbox" id="tWake" checked> Verwirbelungen hinter dem Körper</label>
+      <label class="toggle"><input type="checkbox" id="tForces"> Kraftpfeile an jedem Körperteil</label>
+      <label class="toggle"><input type="checkbox" id="tSlow"> Zeitlupe</label>
+      <label class="toggle"><input type="checkbox" id="tFollow"> Kamera dreht mit</label>
+      <label class="toggle"><input type="checkbox" id="tGrav" checked> Richtung Boden anzeigen</label>
+      <p class="hint">Die Ansicht dreht sich immer so, dass die Luft von unten kommt. Driftest oder trackst du, kippt der Boden-Pfeil statt der Strömung.</p>
+      <div class="legend" style="padding:0"><span><span class="dot" style="background:var(--wind-fast)"></span>schnelle Luft</span><span><span class="dot" style="background:var(--wind-slow)"></span>gebremste Luft / Wirbel</span></div>
+    </section>
+    <section class="sec">
+      <p class="foot">Vereinfachtes Strömungsmodell: jedes Körperteil wird einzeln angeströmt, daraus entstehen Fallrate, Drift und Drehung. Die neutrale Haltung jeder Disziplin ist so kalibriert, dass sie gerade fliegt; jede Abweichung davon zeigt ihre Wirkung. Ersetzt kein Coaching und kein Tunneltraining.</p>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// <model>
+const FACE_URI = 'data:image/webp;base64,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';
+const DEG = Math.PI/180, RHO = 1.0, G = 9.81;
+const v3 = (x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
+const AXES = {x:v3(1,0,0), y:v3(0,1,0), z:v3(0,0,1)};
+const qax = (a,deg)=>new THREE.Quaternion().setFromAxisAngle(AXES[a], deg*DEG);
+
+const SIDE_PARAMS = ['shAbd','shFlex','shRot','elbow','hipFlex','hipAbd','knee'];
+const TRUNK_PARAMS = ['arch','side','twist','neck'];
+const PDEF = {
+  arch:{l:'Hohlkreuz (Hüfte vor)', min:-30, max:45},
+  side:{l:'Seitneigung (+ links)', min:-30, max:30},
+  twist:{l:'Oberkörper drehen (+ linke Schulter zurück)', min:-40, max:40},
+  neck:{l:'Kopf in den Nacken', min:-30, max:60},
+  shAbd:{l:'Arm abspreizen', min:0, max:180},
+  shFlex:{l:'Arm Richtung Bauch (+) / Rücken (−)', min:-60, max:90},
+  shRot:{l:'Arm drehen', min:-90, max:120},
+  elbow:{l:'Ellbogen beugen', min:0, max:150},
+  hipFlex:{l:'Hüfte beugen', min:-40, max:120},
+  hipAbd:{l:'Beine spreizen', min:-10, max:60},
+  knee:{l:'Knie beugen', min:0, max:150},
+};
+const PARAM_KEYS = {arch:['chest','pelvis'], side:['chest'], twist:['chest'], neck:['head'],
+  shAbd:['ua'], shFlex:['ua'], shRot:['ua'], elbow:['fa'], hipFlex:['th'], hipAbd:['th'], knee:['shin']};
+
+function mkPose(trunk, L, R){ return {...trunk, L:{...L}, R:{...(R||L)}}; }
+function clonePose(p){ return {arch:p.arch,side:p.side,twist:p.twist,neck:p.neck,L:{...p.L},R:{...p.R}}; }
+
+const DISC = {
+  belly:{ name:'Bauchlage', base:[90,0,0], refUp:v3(0,0,-1), fwd:v3(0,1,0), startV:50,
+    lean:{fwd:['Kopf tiefer als Füße','Füße tiefer als Kopf'], left:['linke Seite tiefer','rechte Seite tiefer']},
+    neutral: mkPose({arch:15,side:0,twist:0,neck:25},{shAbd:95,shFlex:0,shRot:90,elbow:95,hipFlex:-5,hipAbd:22,knee:50}),
+    presets:[
+      {n:'Neutrale Box', f:p=>p, h:'Die Grundhaltung: Hüfte vor, Arme im 90°-Winkel, Knie gebeugt.'},
+      {n:'Beine strecken', f:p=>{p.L.knee=p.R.knee=25;return p}, h:'Gestreckte Beine bekommen mehr Luft unter die Unterschenkel.'},
+      {n:'Arme nach vorn', f:p=>{p.L.shAbd=p.R.shAbd=150;p.L.elbow=p.R.elbow=15;return p}, h:'Arme Richtung Kopf gestreckt, mehr Fläche vorne am Körper.'},
+      {n:'Kein Hohlkreuz', f:p=>{p.arch=-12;return p}, h:'Ohne Hohlkreuz wird der Körper flach oder rund, der Luftwiderstand verteilt sich anders.'},
+      {n:'Linker Arm tiefer', f:p=>{p.L.shFlex=30;return p}, h:'Nur der linke Arm geht Richtung Boden, also tiefer in den Wind.', asym:true},
+      {n:'Schultern verdreht', f:p=>{p.twist=18;return p}, h:'Linke Schulter hoch, rechte runter.'},
+      {n:'Linkes Bein gestreckt', f:p=>{p.L.knee=20;return p}, h:'Nur ein Bein gestreckt: asymmetrische Fläche hinten.', asym:true},
+    ]},
+  sit:{ name:'Sitfly', base:[0,0,0], refUp:v3(0,1,0), fwd:v3(0,0,1), startV:62,
+    lean:{fwd:['nach vorn gelehnt','nach hinten gelehnt'], left:['nach links gekippt','nach rechts gekippt']},
+    neutral: mkPose({arch:0,side:0,twist:0,neck:0},{shAbd:80,shFlex:15,shRot:0,elbow:25,hipFlex:90,hipAbd:25,knee:90}),
+    presets:[
+      {n:'Neutraler Sitfly', f:p=>p, h:'Oberschenkel waagerecht, Unterschenkel senkrecht, Arme seitlich.'},
+      {n:'Beine strecken', f:p=>{p.L.knee=p.R.knee=35;return p}, h:'Die Unterschenkel zeigen nach vorn und fangen Luft.'},
+      {n:'Zurücklehnen', f:p=>{p.arch=22;return p}, h:'Oberkörper nach hinten, Hüfte nach vorn.'},
+      {n:'Arme hoch', f:p=>{p.L.shAbd=p.R.shAbd=145;return p}, h:'Arme über Schulterhöhe.'},
+      {n:'Knie öffnen', f:p=>{p.L.hipAbd=p.R.hipAbd=50;return p}, h:'Breiterer Sitz, mehr Fläche unter den Oberschenkeln.'},
+      {n:'Linkes Bein gestreckt', f:p=>{p.L.knee=35;return p}, h:'Nur ein Bein nach vorn.', asym:true},
+      {n:'Oberkörper drehen', f:p=>{p.twist=20;return p}, h:'Linke Schulter nach hinten.'},
+    ]},
+  back:{ name:'Rückenlage', base:[-90,0,0], refUp:v3(0,0,1), fwd:v3(0,1,0), startV:52,
+    lean:{fwd:['Kopf tiefer als Füße','Füße tiefer als Kopf'], left:['linke Seite tiefer','rechte Seite tiefer']},
+    neutral: mkPose({arch:-10,side:0,twist:0,neck:-20},{shAbd:80,shFlex:30,shRot:0,elbow:30,hipFlex:35,hipAbd:25,knee:70}),
+    presets:[
+      {n:'Neutrale Rückenlage', f:p=>p, h:'Rücken zum Wind, Kinn zur Brust, Knie angezogen, Arme seitlich und leicht nach oben.'},
+      {n:'Beine strecken', f:p=>{p.L.knee=p.R.knee=15;return p}, h:'Gestreckte Unterschenkel liegen flach im Wind.'},
+      {n:'Arme Richtung Füße', f:p=>{p.L.shAbd=p.R.shAbd=40;return p}, h:'Arme näher am Körper, Hände Richtung Hüfte.'},
+      {n:'Kopf in den Nacken', f:p=>{p.neck=30;return p}, h:'Der Kopf geht zurück in den Wind.'},
+      {n:'Hüfte stark beugen', f:p=>{p.L.hipFlex=p.R.hipFlex=75;return p}, h:'Knie Richtung Brust, der Körper wird zur Schale.'},
+      {n:'Linkes Bein gestreckt', f:p=>{p.L.knee=15;return p}, h:'Nur ein Bein gestreckt.', asym:true},
+    ]},
+  hd:{ name:'Headdown', base:[180,0,0], refUp:v3(0,-1,0), fwd:v3(0,0,1), startV:78,
+    lean:{fwd:['Beine kippen Richtung Bauch','Beine kippen Richtung Rücken'], left:['Beine kippen nach links','Beine kippen nach rechts']},
+    neutral: mkPose({arch:0,side:0,twist:0,neck:15},{shAbd:70,shFlex:10,shRot:0,elbow:30,hipFlex:0,hipAbd:28,knee:8}),
+    presets:[
+      {n:'Neutraler Headdown', f:p=>p, h:'Kopf unten, Körper gestreckt in einer Linie mit dem Wind, Beine leicht gegrätscht.'},
+      {n:'Beine weit spreizen', f:p=>{p.L.hipAbd=p.R.hipAbd=50;return p}, h:'Mehr Fläche oben, der Körper bremst.'},
+      {n:'Hüfte beugen', f:p=>{p.L.hipFlex=p.R.hipFlex=25;return p}, h:'Beine kommen Richtung Bauch, Hüfte knickt ab.'},
+      {n:'Arme anlegen', f:p=>{p.L.shAbd=p.R.shAbd=25;p.L.elbow=p.R.elbow=10;return p}, h:'Weniger Fläche an den Armen.'},
+      {n:'Knie beugen', f:p=>{p.L.knee=p.R.knee=70;return p}, h:'Unterschenkel kippen nach hinten in den Wind.'},
+      {n:'Linker Arm weiter raus', f:p=>{p.L.shAbd=100;return p}, h:'Nur der linke Arm fängt mehr Luft.', asym:true},
+    ]},
+  stand:{ name:'Standup', base:[0,0,0], refUp:v3(0,1,0), fwd:v3(0,0,1), startV:80,
+    lean:{fwd:['nach vorn gelehnt','nach hinten gelehnt'], left:['nach links gekippt','nach rechts gekippt']},
+    neutral: mkPose({arch:0,side:0,twist:0,neck:0},{shAbd:60,shFlex:10,shRot:0,elbow:30,hipFlex:12,hipAbd:15,knee:18}),
+    presets:[
+      {n:'Neutraler Standup', f:p=>p, h:'Aufrecht, Füße zum Wind, Knie locker, Arme seitlich.'},
+      {n:'Knie beugen', f:p=>{p.L.knee=p.R.knee=60;return p}, h:'Die Unterschenkel kippen nach hinten.'},
+      {n:'Arme hoch', f:p=>{p.L.shAbd=p.R.shAbd=140;return p}, h:'Arme über Schulterhöhe.'},
+      {n:'Oberkörper vor', f:p=>{p.arch=-20;return p}, h:'Oberkörper beugt sich nach vorn.'},
+      {n:'Hüfte beugen', f:p=>{p.L.hipFlex=p.R.hipFlex=40;return p}, h:'Oberschenkel kommen nach vorn.'},
+      {n:'Linker Arm hoch', f:p=>{p.L.shAbd=130;return p}, h:'Nur der linke Arm geht nach oben.', asym:true},
+    ]},
+  track:{ name:'Tracking', base:[90,0,0], refUp:v3(0,-Math.sin(30*DEG),-Math.cos(30*DEG)), fwd:v3(0,1,0), startV:48, trimLateral:true,
+    lean:{fwd:['Kopf tiefer als im Track','Kopf höher als im Track'], left:['linke Seite tiefer','rechte Seite tiefer']},
+    neutral: mkPose({arch:-8,side:0,twist:0,neck:10},{shAbd:25,shFlex:-15,shRot:0,elbow:5,hipFlex:-5,hipAbd:12,knee:5}),
+    presets:[
+      {n:'Neutraler Track', f:p=>p, h:'Körper gestreckt, Schultern rund, Arme neben dem Körper, Beine lang. Der Körper arbeitet wie ein Flügel.'},
+      {n:'Arme enger', f:p=>{p.L.shAbd=p.R.shAbd=12;return p}, h:'Weniger Fläche an den Armen.'},
+      {n:'Beine spreizen', f:p=>{p.L.hipAbd=p.R.hipAbd=32;return p}, h:'Mehr Fläche hinten, der Körper bremst.'},
+      {n:'Hüfte beugen', f:p=>{p.L.hipFlex=p.R.hipFlex=25;return p}, h:'Der Körper knickt in der Hüfte ab.'},
+      {n:'Kopf hoch', f:p=>{p.neck=45;return p}, h:'Blick nach vorn statt Richtung Boden.'},
+      {n:'Linker Arm weiter weg', f:p=>{p.L.shAbd=50;return p}, h:'Nur der linke Arm fängt mehr Luft.', asym:true},
+    ]},
+};
+
+function buildFigure(colors){
+  const skel = new THREE.Group(), J = {}, segs = [], meshes = {};
+  const mat = c => new THREE.MeshStandardMaterial({color:c, roughness:.6, metalness:.03});
+  const add = (g, geo, colorKey, key, pos, scale)=>{
+    const m = new THREE.Mesh(geo, mat(colors[colorKey]||0xffffff));
+    m.userData.colorKey = colorKey;
+    if(pos) m.position.set(pos[0],pos[1],pos[2]);
+    if(scale) m.scale.set(scale[0],scale[1],scale[2]);
+    g.add(m); if(key){ (meshes[key]=meshes[key]||[]).push(m); }
+    (meshes._all=meshes._all||[]).push(m); return m;
+  };
+  const limb = (g, len, r0, r1, colorKey, key, s)=>{
+    add(g, new THREE.CylinderGeometry(r0, r1, len, 16), colorKey, key, [0,-len/2,0]);
+    add(g, new THREE.SphereGeometry(r0, 16, 12), colorKey, key);
+    // orange stripe down the outer side of the limb
+    const st = add(g, new THREE.BoxGeometry(.016, len*.94, .03), 'stripe', key, [s*(r0+r1)/2*.97, -len/2, 0]);
+    st.rotation.z = -s*Math.atan2(r0-r1, len);
+  };
+  const pelvis = new THREE.Group(); skel.add(pelvis); J.pelvis = pelvis;
+  add(pelvis, new THREE.CylinderGeometry(.17,.16,.22,22), 'suit', 'pelvis', [0,0,0], [1,1,.66]);
+  const chest = new THREE.Group(); chest.position.set(0,.1,0); pelvis.add(chest); J.chest = chest;
+  add(chest, new THREE.CylinderGeometry(.205,.17,.52,24), 'suit', 'chest', [0,.26,0], [1,1,.6]);
+  add(chest, new THREE.BoxGeometry(.33,.44,.11), 'rig', null, [0,.29,-.165]);
+  for(const sx of [1,-1]){ add(chest, new THREE.BoxGeometry(.02,.5,.05), 'stripe', 'chest', [sx*.186,.26,0]).rotation.z = sx*.06; add(pelvis, new THREE.BoxGeometry(.02,.2,.05), 'stripe', 'pelvis', [sx*.163,0,0]); }
+  add(chest, new THREE.CylinderGeometry(.05,.05,.3,10), 'rig', null, [0,.07,-.19]).rotation.z = Math.PI/2;
+  const neck = new THREE.Group(); neck.position.set(0,.53,0); chest.add(neck); J.neck = neck;
+  add(neck, new THREE.CylinderGeometry(.05,.055,.1,10), 'suit', 'head', [0,.04,0]);
+  add(neck, new THREE.SphereGeometry(.128,24,18), 'rig', 'head', [0,.15,0]);
+  // face from the jumper's photo, wrapped onto the front of the head
+  const faceTex = (typeof document!=='undefined' && THREE.TextureLoader) ? new THREE.TextureLoader().load(FACE_URI) : null;
+  const faceMesh = add(neck, new THREE.SphereGeometry(.1305,28,20, Math.PI/2-1.2, 2.4, Math.PI*.30, Math.PI*.50), 'face', 'head', [0,.15,0]);
+  if(faceTex){ faceMesh.material.map = faceTex; faceMesh.material.transparent = true; faceMesh.material.roughness = .75; faceMesh.material.needsUpdate = true; }
+  // open-face helmet, tilted back so the front edge sits on the goggles
+  const helmet = new THREE.Group(); helmet.position.set(0,.15,0); helmet.rotation.x = -.3; neck.add(helmet);
+  add(helmet, new THREE.SphereGeometry(.146,32,20,0,Math.PI*2,0,Math.PI*.40), 'helmet', 'head');
+  const rim = add(helmet, new THREE.TorusGeometry(.146*Math.sin(Math.PI*.40), .007, 8, 40), 'rig', 'head', [0,.146*Math.cos(Math.PI*.40),0]);
+  rim.rotation.x = Math.PI/2;
+  for(const [k,s,nm] of [['L',1,'linker'],['R',-1,'rechter']]){
+    const sh = new THREE.Group(); sh.position.set(s*.205,.46,0); chest.add(sh); J['sh'+k]=sh;
+    limb(sh,.29,.062,.052,'suit','ua'+k,s);
+    const el = new THREE.Group(); el.position.set(0,-.29,0); sh.add(el); J['el'+k]=el;
+    limb(el,.26,.052,.042,'suit','fa'+k,s);
+    add(el,new THREE.SphereGeometry(.052,12,10),'rig','fa'+k,[0,-.29,0]);
+    const hip = new THREE.Group(); hip.position.set(s*.095,-.07,0); pelvis.add(hip); J['hip'+k]=hip;
+    limb(hip,.44,.092,.068,'suit','th'+k,s);
+    const kn = new THREE.Group(); kn.position.set(0,-.44,0); hip.add(kn); J['kn'+k]=kn;
+    limb(kn,.42,.068,.05,'suit','shin'+k,s);
+    add(kn,new THREE.BoxGeometry(.09,.075,.25),'rig','shin'+k,[0,-.44,.07]);
+    segs.push({name:nm+' Oberarm', key:'ua'+k, g:sh, type:'cyl', len:.29, d:.13, m:2.5, cd:1.0});
+    segs.push({name:nm+' Unterarm', key:'fa'+k, g:el, type:'cyl', len:.29, d:.11, m:2.0, cd:1.0});
+    segs.push({name:nm+' Oberschenkel', key:'th'+k, g:hip, type:'cyl', len:.44, d:.19, m:10, cd:1.0});
+    segs.push({name:nm+' Unterschenkel', key:'shin'+k, g:kn, type:'cyl', len:.46, d:.15, m:4.5, cd:1.0});
+  }
+  segs.push({name:'Becken', key:'pelvis', g:pelvis, type:'box', c:v3(0,0,0), dims:[.34,.2,.22], m:13, cd:1.05});
+  segs.push({name:'Oberkörper', key:'chest', g:chest, type:'box', c:v3(0,.26,0), dims:[.40,.52,.24], m:28, cd:1.05});
+  segs.push({name:'Gurtzeug', key:null, g:chest, type:'mass', c:v3(0,.29,-.165), m:11});
+  segs.push({name:'Kopf', key:'head', g:neck, type:'sphere', c:v3(0,.15,0), r:.13, m:6, cd:.6});
+  for(const s of segs){ if(s.type==='cyl') s.c = v3(0,-s.len/2,0); }
+  return {skel, J, segs, meshes};
+}
+
+function applyPose(J, p){
+  J.chest.quaternion.copy(qax('y',p.twist)).multiply(qax('z',-p.side)).multiply(qax('x',-p.arch*0.6));
+  J.neck.quaternion.copy(qax('x',-p.neck));
+  for(const [k,s] of [['L',1],['R',-1]]){
+    const a = p[k];
+    J['sh'+k].quaternion.copy(qax('y',-s*a.shFlex)).multiply(qax('z',s*a.shAbd)).multiply(qax('y',s*a.shRot));
+    J['el'+k].quaternion.copy(qax('x',-a.elbow));
+    J['hip'+k].quaternion.copy(qax('x',-(a.hipFlex - p.arch*0.5))).multiply(qax('z',s*a.hipAbd));
+    J['kn'+k].quaternion.copy(qax('x',a.knee));
+  }
+}
+
+// Mass properties in the root frame (root at identity). Sets skel offset so the root origin is the centre of mass.
+function massProps(root, skel, segs, totalMass){
+  const sp = root.position.clone(), sq = root.quaternion.clone();
+  root.position.set(0,0,0); root.quaternion.identity(); skel.position.set(0,0,0); root.updateMatrixWorld(true);
+  const base = segs.reduce((a,s)=>a+s.m,0), sc = totalMass/base;
+  const com = v3(); const pts = [];
+  const q = new THREE.Quaternion();
+  for(const s of segs){ const p = s.c.clone(); s.g.localToWorld(p); s.g.getWorldQuaternion(q); pts.push({p, m:s.m*sc, s, q:q.clone()}); com.addScaledVector(p, s.m*sc); }
+  com.divideScalar(totalMass);
+  skel.position.copy(com).negate(); root.updateMatrixWorld(true);
+  const I = [[.3,0,0],[0,.3,0],[0,0,.3]];
+  for(const o of pts){
+    const r = o.p.clone().sub(com), rr = r.lengthSq(), R=[r.x,r.y,r.z];
+    for(let i=0;i<3;i++) for(let j=0;j<3;j++) I[i][j] += o.m*((i===j?rr:0) - R[i]*R[j]);
+    if(o.s.type==='cyl'){ const a = v3(0,-1,0).applyQuaternion(o.q), A=[a.x,a.y,a.z], k=o.m*o.s.len*o.s.len/12;
+      for(let i=0;i<3;i++) for(let j=0;j<3;j++) I[i][j] += k*((i===j?1:0) - A[i]*A[j]); }
+  }
+  const Ib = new THREE.Matrix3().set(I[0][0],I[0][1],I[0][2],I[1][0],I[1][1],I[1][2],I[2][0],I[2][1],I[2][2]);
+  root.position.copy(sp); root.quaternion.copy(sq); root.updateMatrixWorld(true);
+  return {Ib, M: totalMass};
+}
+
+const _q = new THREE.Quaternion();
+const BOX_AX = [v3(1,0,0), v3(0,1,0), v3(0,0,1)];
+// Aerodynamic force on every body part. u = air velocity relative to that part.
+function aeroForces(S, segs, airAt){
+  const F = v3(), T = v3(), per = [];
+  for(let i=0;i<segs.length;i++){
+    const s = segs[i]; if(s.type==='mass') continue;
+    const c = s.c.clone(); s.g.localToWorld(c);
+    const r = c.clone().sub(S.pos);
+    const vseg = S.vel.clone().add(S.omega.clone().cross(r));
+    const u = airAt(c, i).sub(vseg);
+    const f = v3();
+    s.g.getWorldQuaternion(_q);
+    if(s.type==='cyl'){
+      const a = v3(0,-1,0).applyQuaternion(_q);
+      const un = u.clone().addScaledVector(a, -u.dot(a));
+      f.copy(un).multiplyScalar(.5*RHO*s.cd*s.d*s.len*un.length());
+    } else if(s.type==='box'){
+      const [w,h,d] = s.dims, A = [h*d, w*d, w*h];
+      for(let k=0;k<3;k++){ const n = BOX_AX[k].clone().applyQuaternion(_q); const un = u.dot(n); f.addScaledVector(n, .5*RHO*s.cd*A[k]*un*Math.abs(un)); }
+    } else if(s.type==='sphere'){
+      f.copy(u).multiplyScalar(.5*RHO*s.cd*Math.PI*s.r*s.r*u.length());
+    }
+    const tq = r.clone().cross(f);
+    F.add(f); T.add(tq); per.push({i, f, tq, c});
+  }
+  return {F, T, per};
+}
+
+// Calibration: the neutral pose of each discipline should fly straight. Residual side force and torque of the
+// neutral pose (per unit airspeed², in body axes) are measured once and removed during the simulation.
+// This stands in for details the model does not know (jumpsuit cut, rig shape, how a flyer really holds the box).
+function computeTrim(root, skel, segs, d){
+  const base = new THREE.Quaternion().setFromEuler(new THREE.Euler(d.base[0]*DEG, d.base[1]*DEG, d.base[2]*DEG));
+  const up = d.refUp.clone().applyQuaternion(base);
+  const S = {pos:v3(), vel:up.clone().multiplyScalar(-1), omega:v3(), q:base};
+  const sp = root.position.clone(), sq = root.quaternion.clone();
+  root.position.set(0,0,0); root.quaternion.copy(base); root.updateMatrixWorld(true);
+  const r = aeroForces(S, segs, ()=>v3());
+  root.position.copy(sp); root.quaternion.copy(sq); root.updateMatrixWorld(true);
+  const inv = new THREE.Quaternion(-base.x, -base.y, -base.z, base.w);
+  const Fp = r.F.clone().addScaledVector(up, -r.F.dot(up));
+  const Fb = Fp.applyQuaternion(inv);
+  if(d.trimLateral){ Fb.y = 0; Fb.z = 0; }   // tracking keeps its forward lift, only sideways force is calibrated away
+  return {Fb, Tb: r.T.clone().applyQuaternion(inv)};
+}
+const YAW_DAMP = 30;
+// </model>
+
+(function(){
+const $ = s=>document.querySelector(s);
+const cssv = n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+/* ---------- state ---------- */
+const S = { disc:'belly', mode:'free', pos:v3(0,4000,0), vel:v3(0,-50,0), q:new THREE.Quaternion(), omega:v3(),
+  t:0, paused:false, weight:85, ctrl:.6, wind:15, windDir:250, turb:.25, tunnelV:200, tilt:0, tiltDir:0, track:[], trackT:0 };
+let tgt = clonePose(DISC.belly.neutral), cur = clonePose(tgt);
+let activePreset = 0;
+
+/* ---------- three.js ---------- */
+const canvas = $('#gl');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+renderer.setClearColor(0x000000, 0);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, .05, 200);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, .85));
+const sun = new THREE.DirectionalLight(0xffffff, .9); sun.position.set(3,6,4); scene.add(sun);
+const fill = new THREE.DirectionalLight(0xffffff, .35); fill.position.set(-4,-3,-2); scene.add(fill);
+
+const themeColors = ()=>({suit:cssv('--suit'), stripe:cssv('--stripe'), face:'#ffffff', rig:cssv('--rig'), helmet:cssv('--helmet'), visor:cssv('--visor')});
+const fig = buildFigure(themeColors());
+// Everything lives in a 'wind frame' group, rotated so the relative wind always streams straight up the screen.
+const disp = new THREE.Group(); scene.add(disp);
+let dispQ = new THREE.Quaternion();
+const root = new THREE.Group(); root.add(fig.skel); disp.add(root);
+let mp = null, trim = null;
+
+/* tunnel */
+const tunnel = new THREE.Group(); disp.add(tunnel);
+const tunnelMat = new THREE.LineBasicMaterial({color:cssv('--grid'), transparent:true, opacity:.45});
+{ const R = 2.1;
+  for(let y=0;y<=7;y+=.7){ const pts=[]; for(let i=0;i<=64;i++){ const a=i/64*Math.PI*2; pts.push(v3(Math.cos(a)*R,y,Math.sin(a)*R)); } tunnel.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), tunnelMat)); }
+  for(let i=0;i<16;i++){ const a=i/16*Math.PI*2; tunnel.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([v3(Math.cos(a)*R,0,Math.sin(a)*R),v3(Math.cos(a)*R,7,Math.sin(a)*R)]), tunnelMat)); }
+  const net=[]; for(let x=-2;x<=2;x+=.25){ const h=Math.sqrt(Math.max(0,R*R-x*x)); net.push(v3(x,0,-h),v3(x,0,h),v3(-h,0,x),v3(h,0,x)); }
+  tunnel.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(net), tunnelMat));
+}
+
+/* particles */
+const NP = (window.innerWidth < 700) ? 700 : 1300;
+const pp = new Float32Array(NP*3), pph = new Float32Array(NP);
+const lpos = new Float32Array(NP*6), lcol = new Float32Array(NP*6);
+const lgeo = new THREE.BufferGeometry();
+lgeo.setAttribute('position', new THREE.BufferAttribute(lpos,3));
+lgeo.setAttribute('color', new THREE.BufferAttribute(lcol,3));
+const lmat = new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:.75});
+const flow = new THREE.LineSegments(lgeo, lmat); flow.frustumCulled = false; disp.add(flow);
+const FH = {x:3.4, y:4.5};
+function seedParticle(i, anyY){
+  if(S.mode==='free'){ pp[i*3]=(Math.random()*2-1)*FH.x; pp[i*3+1]=anyY?(Math.random()*2-1)*FH.y:-FH.y; pp[i*3+2]=(Math.random()*2-1)*FH.x; }
+  else { const a=Math.random()*Math.PI*2, r=Math.sqrt(Math.random())*2.0; pp[i*3]=Math.cos(a)*r; pp[i*3+1]=anyY?Math.random()*7.4-.3:-.3; pp[i*3+2]=Math.sin(a)*r; }
+  pph[i]=Math.random()*Math.PI*2;
+}
+for(let i=0;i<NP;i++) seedParticle(i,true);
+
+/* force arrows */
+const arrows = fig.segs.filter(s=>s.type!=='mass').map(s=>{ const a=new THREE.ArrowHelper(v3(0,1,0),v3(),1,0xffffff,.08,.05); a.visible=false; disp.add(a); return a; });
+const driftArrow = new THREE.ArrowHelper(v3(1,0,0),v3(),1,0xffffff,.18,.12); disp.add(driftArrow);
+const gravArrow = new THREE.ArrowHelper(v3(0,-1,0),v3(),1.2,0xffffff,.16,.1); disp.add(gravArrow);
+
+let colWindFast, colWindSlow, colBgFade, colArrowL, colArrowR, colArrowC, colAccent;
+function refreshTheme(){
+  const c = themeColors();
+  for(const m of fig.meshes._all){ m.material.color.set(c[m.userData.colorKey]||'#ffffff'); }
+  colWindFast = new THREE.Color(cssv('--wind-fast')); colWindSlow = new THREE.Color(cssv('--wind-slow'));
+  colBgFade = new THREE.Color(cssv('--sky-bot'));
+  colArrowL = new THREE.Color(cssv('--left')); colArrowR = new THREE.Color(cssv('--right')); colArrowC = new THREE.Color(cssv('--fg')); colAccent = new THREE.Color(cssv('--accent'));
+  tunnelMat.color.set(cssv('--grid'));
+  driftArrow.setColor(colAccent); gravArrow.setColor(new THREE.Color(cssv('--grid')));
+  const segsNM = fig.segs.filter(s=>s.type!=='mass');
+  segsNM.forEach((s,i)=>arrows[i].setColor(s.key&&s.key.endsWith('L')?colArrowL:(s.key&&s.key.endsWith('R')?colArrowR:colArrowC)));
+  drawMini();
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', refreshTheme);
+new MutationObserver(refreshTheme).observe(document.documentElement,{attributes:true, attributeFilter:['data-theme']});
+
+/* ---------- air ---------- */
+const segPh = fig.segs.map(()=>[Math.random()*6.28,Math.random()*6.28,Math.random()*6.28]);
+let gust = v3();
+function airMean(){
+  if(S.mode==='free'){ const W=S.wind/3.6, d=S.windDir*DEG; return v3(-W*Math.sin(d), 0, W*Math.cos(d)); }
+  const V=S.tunnelV/3.6, t=S.tilt*DEG, a=S.tiltDir*DEG; return v3(Math.sin(t)*Math.sin(a)*V, Math.cos(t)*V, -Math.sin(t)*Math.cos(a)*V);
+}
+let airBase = airMean();
+function updateGust(){
+  const V = S.mode==='free' ? Math.max(30, -S.vel.y) : S.tunnelV/3.6, A = S.turb*V*.09, t=S.t;
+  gust.set(A*(Math.sin(t*1.3)+.6*Math.sin(t*3.7+1.1)), A*.6*(Math.sin(t*2.1+2)+.5*Math.sin(t*5.3)), A*(Math.sin(t*1.7+4)+.6*Math.sin(t*4.1+.3)));
+}
+function airAt(c, i){
+  const a = airBase.clone().add(gust);
+  if(i>=0 && S.turb>0){ const V = S.mode==='free' ? Math.max(30,-S.vel.y) : S.tunnelV/3.6, A=S.turb*V*.07, p=segPh[i], t=S.t;
+    a.x += A*Math.sin(t*6.1+p[0]); a.y += A*Math.sin(t*5.3+p[1]); a.z += A*Math.sin(t*6.7+p[2]); }
+  return a;
+}
+
+/* ---------- simulation ---------- */
+const disc = ()=>DISC[S.disc];
+let last = {F:v3(), T:v3(), per:[], uhat:v3(0,1,0), V:50, spring:0, cap:1, ang:0};
+function resetSim(){
+  const d = disc();
+  S.q.setFromEuler(new THREE.Euler(d.base[0]*DEG, d.base[1]*DEG, d.base[2]*DEG));
+  S.omega.set(0,0,0);
+  airBase = airMean();
+  if(S.mode==='free'){ S.pos.set(0,4000,0); S.vel.copy(airBase).add(v3(0,-d.startV,0)); }
+  else { S.pos.set(0,2.4,0); S.vel.set(0,0,0); }
+  S.track = []; S.trackT = 0; S.headingRef = null;
+  for(let i=0;i<NP;i++) seedParticle(i,true);
+  tunnel.visible = S.mode==='tunnel';
+  { const wv = airBase.clone().sub(S.vel); if(wv.lengthSq()>.01) dispQ.setFromUnitVectors(wv.normalize(), v3(0,1,0)); }
+}
+// Physics always runs in plain world axes; the wind-frame rotation is only applied right before drawing.
+function physFrame(){ disp.position.set(0,0,0); disp.quaternion.identity(); disp.updateMatrixWorld(true); }
+function simStep(dt){
+  physFrame();
+  root.position.copy(S.pos); root.quaternion.copy(S.q); root.updateMatrixWorld(true);
+  updateGust();
+  const res = aeroForces(S, fig.segs, airAt);
+  const uC = airAt(S.pos,-1).sub(S.vel); const V = uC.length()||1; const uhat = uC.clone().divideScalar(V);
+  if(trim){ res.F.addScaledVector(trim.Fb.clone().applyQuaternion(S.q), -V*V); res.T.addScaledVector(trim.Tb.clone().applyQuaternion(S.q), -V*V); }
+  const M = mp.M;
+  const acc = res.F.clone().divideScalar(M); acc.y -= G;
+  if(S.mode==='tunnel'){
+    const R=1.7, rh=Math.hypot(S.pos.x,S.pos.z);
+    if(rh>R){ const n=v3(S.pos.x/rh,0,S.pos.z/rh); acc.addScaledVector(n,-(rh-R)*60); const vn=S.vel.dot(n); if(vn>0) acc.addScaledVector(n,-vn*8); }
+    if(S.pos.y<.45){ acc.y += (.45-S.pos.y)*120; if(S.vel.y<0) acc.y -= S.vel.y*10; S.vel.x*=.995; S.vel.z*=.995; }
+    if(S.pos.y>6.2){ acc.y -= (S.pos.y-6.2)*60; if(S.vel.y>0) acc.y -= S.vel.y*6; }
+  }
+  S.vel.addScaledVector(acc, dt); S.pos.addScaledVector(S.vel, dt);
+  // active stabilisation: the flyer keeps the reference axis aligned with the relative wind
+  const K = 1300*S.ctrl, cap = 40 + 520*S.ctrl;
+  const b = disc().refUp.clone().applyQuaternion(S.q);
+  const cr = b.clone().cross(uhat), sn = cr.length(), ang = Math.atan2(sn, b.dot(uhat));
+  const spring = sn>1e-6 ? cr.multiplyScalar(K*ang/sn) : v3();
+  const sm = spring.length(); if(sm>cap) spring.multiplyScalar(cap/sm);
+  const wpar = uhat.clone().multiplyScalar(S.omega.dot(uhat)), wperp = S.omega.clone().sub(wpar);
+  const C = 2*Math.sqrt(Math.max(K,1)*14)*.7 + 6;
+  const tau = res.T.clone().add(spring).addScaledVector(wperp,-C).addScaledVector(wpar,-YAW_DAMP*(V/50)**2);
+  const R = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(S.q));
+  const Rt = R.clone().transpose();
+  const Iw = R.clone().multiply(mp.Ib).multiply(Rt);
+  const IwInv = Iw.clone().invert();
+  const gyro = S.omega.clone().cross(S.omega.clone().applyMatrix3(Iw));
+  const wdot = tau.sub(gyro).applyMatrix3(IwInv);
+  S.omega.addScaledVector(wdot, dt);
+  if(S.omega.length()>12) S.omega.setLength(12);
+  const w = S.omega, dq = new THREE.Quaternion(w.x*dt*.5, w.y*dt*.5, w.z*dt*.5, 0).multiply(S.q);
+  S.q.set(S.q.x+dq.x, S.q.y+dq.y, S.q.z+dq.z, S.q.w+dq.w).normalize();
+  last = {F:res.F, T:res.T, per:res.per, uhat, V, spring:sm, cap, ang};
+}
+
+/* ---------- pose ---------- */
+function poseLerp(k){
+  let moved = false;
+  const L = (o,t,key)=>{ const d=t[key]-o[key]; if(Math.abs(d)>.01){ o[key]+=d*k; moved=true; } else o[key]=t[key]; };
+  for(const p of TRUNK_PARAMS) L(cur,tgt,p);
+  for(const s of ['L','R']) for(const p of SIDE_PARAMS) L(cur[s],tgt[s],p);
+  return moved;
+}
+function rebuildMass(){ physFrame(); applyPose(fig.J, cur); mp = massProps(root, fig.skel, fig.segs, S.weight); }
+
+/* ---------- camera ---------- */
+const cam = {theta:40*DEG, phi:66*DEG, dist:5.6, tgt:v3(), yawPrev:null};
+function bodyFrame(){
+  const d = disc();
+  const f = d.fwd.clone().applyQuaternion(S.q); f.y=0; if(f.lengthSq()<1e-6) f.set(0,0,1); f.normalize();
+  const l = v3(1,0,0).applyQuaternion(S.q); l.y=0; if(l.lengthSq()<1e-6) l.set(1,0,0); l.normalize();
+  return {f,l};
+}
+function setView(v){
+  const bf = bodyFrame(), f = bf.f.clone().applyQuaternion(dispQ), l = bf.l.clone().applyQuaternion(dispQ);
+  f.y=0; l.y=0; f.normalize(); l.normalize();
+  if(v==='side'){ cam.theta=Math.atan2(l.x,l.z); cam.phi=84*DEG; }
+  if(v==='front'){ cam.theta=Math.atan2(f.x,f.z); cam.phi=80*DEG; }
+  if(v==='top'){ cam.phi=6*DEG; cam.theta=Math.atan2(-f.x,-f.z); }
+  if(v==='bottom'){ cam.phi=172*DEG; cam.theta=Math.atan2(-f.x,-f.z); }
+}
+const ptrs = new Map(); let pinch0 = 0, dist0 = 0;
+canvas.addEventListener('pointerdown', e=>{ canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY}); if(ptrs.size===2){ const [a,b]=[...ptrs.values()]; pinch0=Math.hypot(a.x-b.x,a.y-b.y); dist0=cam.dist; } });
+canvas.addEventListener('pointermove', e=>{
+  if(!ptrs.has(e.pointerId)) return; const p=ptrs.get(e.pointerId);
+  if(ptrs.size===1){ cam.theta -= (e.clientX-p.x)*.008; cam.phi = Math.min(Math.PI-.04, Math.max(.04, cam.phi-(e.clientY-p.y)*.008)); }
+  p.x=e.clientX; p.y=e.clientY;
+  if(ptrs.size===2){ const [a,b]=[...ptrs.values()]; const d=Math.hypot(a.x-b.x,a.y-b.y); if(pinch0>0) cam.dist=Math.min(14,Math.max(2.2,dist0*pinch0/d)); }
+});
+const endPtr = e=>{ ptrs.delete(e.pointerId); if(ptrs.size<2) pinch0=0; };
+canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('wheel', e=>{ e.preventDefault(); cam.dist=Math.min(14,Math.max(2.2,cam.dist*(1+Math.sign(e.deltaY)*.08))); },{passive:false});
+document.querySelectorAll('#views button').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.v)));
+
+function resize(){
+  const r = $('#stage').getBoundingClientRect();
+  renderer.setSize(Math.max(1,r.width), Math.max(1,r.height), false);
+  camera.aspect = r.width/Math.max(1,r.height); camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe($('#stage'));
+
+/* ---------- highlight ---------- */
+let hl = {keys:[], until:0};
+function highlight(param, side){
+  const ks = (PARAM_KEYS[param]||[]).map(k=>['ua','fa','th','shin'].includes(k)? (side? [k+side] : [k+'L',k+'R']) : [k]).flat();
+  hl = {keys:ks, until:performance.now()+1400};
+}
+function applyHighlight(now){
+  const on = now < hl.until;
+  for(const m of fig.meshes._all){ m.material.emissive.setRGB(0,0,0); }
+  if(!on) return;
+  const k = .35*Math.min(1,(hl.until-now)/500);
+  for(const key of hl.keys) for(const m of (fig.meshes[key]||[])) m.material.emissive.copy(colAccent).multiplyScalar(k);
+}
+
+/* ---------- UI: discipline, presets, joints ---------- */
+const DISC_TABS = [['belly','Bauchlage'],['back','Rückenlage'],['sit','Sitfly'],['hd','Headdown'],['stand','Standup'],['track','Tracking']];
+$('#disc').innerHTML = DISC_TABS.map(([k,n])=>k?`<button data-d="${k}" aria-pressed="${k===S.disc}">${n}</button>`:`<button disabled title="Kommt als Nächstes">${n}<span class="soon">bald</span></button>`).join('');
+$('#disc').addEventListener('click', e=>{ const b=e.target.closest('button[data-d]'); if(!b) return; setDisc(b.dataset.d); });
+
+function setDisc(k){
+  S.disc = k;
+  document.querySelectorAll('#disc button[data-d]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.d===k));
+  tgt = clonePose(DISC[k].neutral); cur = clonePose(tgt); activePreset = 0; $('#linkArms').checked = true; $('#linkLegs').checked = true;
+  renderPresets(); syncSliders(); rebuildMass(); trim = computeTrim(root, fig.skel, fig.segs, DISC[k]); resetSim(); setView('side'); cam.phi = 70*DEG; cam.theta += 35*DEG;
+}
+function renderPresets(){
+  const d = disc();
+  $('#presets').innerHTML = d.presets.map((p,i)=>`<button class="chip" data-i="${i}" aria-pressed="${i===activePreset}">${p.n}</button>`).join('');
+  $('#presetHint').textContent = activePreset>=0 ? d.presets[activePreset].h : 'Eigene Haltung. Beobachte rechts, welches Körperteil wie wirkt.';
+}
+$('#presets').addEventListener('click', e=>{
+  const b = e.target.closest('.chip'); if(!b) return; const i=+b.dataset.i, d=disc(), p=d.presets[i];
+  tgt = p.f(clonePose(d.neutral)); activePreset = i;
+  if(p.asym){ $('#linkArms').checked=false; $('#linkLegs').checked=false; }
+  renderPresets(); syncSliders();
+});
+
+const fmt = v=>`${Math.round(v)}°`;
+function trunkRow(p){ const d=PDEF[p]; return `<div class="row"><div class="rl"><label for="p-${p}">${d.l}</label><output id="o-${p}"></output></div><input type="range" id="p-${p}" data-p="${p}" min="${d.min}" max="${d.max}" step="1"></div>`; }
+function sideRow(p){ const d=PDEF[p]; return `<div class="row"><div class="rl"><span>${d.l}</span></div><div class="pair">
+  <label class="side l"><span class="tag l">L</span><input type="range" id="p-${p}-L" data-p="${p}" data-s="L" min="${d.min}" max="${d.max}" step="1" aria-label="${d.l} links"><output id="o-${p}-L"></output></label>
+  <label class="side r"><span class="tag r">R</span><input type="range" id="p-${p}-R" data-p="${p}" data-s="R" min="${d.min}" max="${d.max}" step="1" aria-label="${d.l} rechts"><output id="o-${p}-R"></output></label></div></div>`; }
+$('#secTrunk').insertAdjacentHTML('beforeend', TRUNK_PARAMS.map(trunkRow).join(''));
+$('#secArms').insertAdjacentHTML('beforeend', ['shAbd','shFlex','shRot','elbow'].map(sideRow).join(''));
+$('#secLegs').insertAdjacentHTML('beforeend', ['hipFlex','hipAbd','knee'].map(sideRow).join(''));
+
+function syncSliders(){
+  for(const p of TRUNK_PARAMS){ $('#p-'+p).value = tgt[p]; $('#o-'+p).textContent = fmt(tgt[p]); }
+  for(const s of ['L','R']) for(const p of SIDE_PARAMS){ $(`#p-${p}-${s}`).value = tgt[s][p]; $(`#o-${p}-${s}`).textContent = fmt(tgt[s][p]); }
+}
+document.querySelector('.left').addEventListener('input', e=>{
+  const el = e.target; if(!el.dataset || !el.dataset.p) return;
+  const p = el.dataset.p, s = el.dataset.s, v = +el.value;
+  if(!s){ tgt[p]=v; $('#o-'+p).textContent = fmt(v); highlight(p); }
+  else {
+    const linked = ['shAbd','shFlex','shRot','elbow'].includes(p) ? $('#linkArms').checked : $('#linkLegs').checked;
+    const sides = linked ? ['L','R'] : [s];
+    for(const ss of sides){ tgt[ss][p]=v; $(`#p-${p}-${ss}`).value=v; $(`#o-${p}-${ss}`).textContent=fmt(v); }
+    highlight(p, linked?null:s);
+  }
+  if(activePreset!==-1){ activePreset=-1; renderPresets(); }
+});
+document.querySelector('.left').addEventListener('focusin', e=>{ const el=e.target; if(el.dataset && el.dataset.p){ const linked = el.dataset.s && (['shAbd','shFlex','shRot','elbow'].includes(el.dataset.p)?$('#linkArms').checked:$('#linkLegs').checked); highlight(el.dataset.p, linked?null:el.dataset.s); } });
+
+/* air + jumper controls */
+function ctlRow(id,label,min,max,step,val,unit,onv){
+  return {html:`<div class="row"><div class="rl"><label for="${id}">${label}</label><output id="o-${id}"></output></div><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`, id, unit, onv};
+}
+const AIR = {
+  free:[ctlRow('cWind','Höhenwind',0,90,1,S.wind,' km/h',v=>S.wind=v), ctlRow('cWindDir','Wind kommt aus',0,355,5,S.windDir,'°',v=>S.windDir=v), ctlRow('cTurb','Turbulenz',0,100,1,S.turb*100,' %',v=>S.turb=v/100)],
+  tunnel:[ctlRow('cTV','Luftgeschwindigkeit',120,330,1,S.tunnelV,' km/h',v=>S.tunnelV=v), ctlRow('cTilt','Strömung schräg',0,20,1,S.tilt,'°',v=>S.tilt=v), ctlRow('cTiltDir','Schräge Richtung',0,355,5,S.tiltDir,'°',v=>S.tiltDir=v), ctlRow('cTurb2','Turbulenz',0,100,1,S.turb*100,' %',v=>S.turb=v/100)],
+};
+const compass = d=>['N','NO','O','SO','S','SW','W','NW'][Math.round(d/45)%8];
+function renderAir(){
+  const list = AIR[S.mode];
+  $('#airCtl').innerHTML = list.map(c=>c.html).join('');
+  for(const c of list){ const el=$('#'+c.id), o=$('#o-'+c.id);
+    if(c.id==='cTurb'||c.id==='cTurb2') el.value = Math.round(S.turb*100);
+    const show=()=>{ const v=+el.value; o.textContent = c.id==='cWindDir' ? `${v}° · ${compass(v)}` : `${v}${c.unit}`; };
+    show(); el.addEventListener('input',()=>{ c.onv(+el.value); show(); airBase = airMean(); }); }
+  $('#airHint').textContent = S.mode==='free'
+    ? 'Höhenwind trägt dich über Grund, ändert aber nicht, wie dich die Luft anströmt. Deine Haltung bestimmt die Bewegung relativ zur Luft.'
+    : 'Im Tunnel strömt die Luft von unten. Ist sie schneller als deine Fallrate, steigst du, ist sie langsamer, sinkst du aufs Netz.';
+}
+$('#mode').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return; S.mode=b.dataset.m;
+  document.querySelectorAll('#mode button').forEach(x=>x.setAttribute('aria-pressed', x===b)); renderAir(); resetSim(); });
+{
+  const J = [ctlRow('cW','Gewicht mit Ausrüstung',55,125,1,S.weight,' kg',v=>{S.weight=v; rebuildMass();}), ctlRow('cCtrl','Aktive Korrektur',0,100,1,S.ctrl*100,' %',v=>S.ctrl=v/100)];
+  $('#jumperCtl').innerHTML = J.map(c=>c.html).join('') + '<p class="hint">Aktive Korrektur steht für die kleinen Ausgleichsbewegungen, mit denen ein Springer stabil bleibt. Bei 0 % siehst du, wie die Haltung allein fliegen würde.</p>';
+  for(const c of J){ const el=$('#'+c.id), o=$('#o-'+c.id); const show=()=>o.textContent=`${el.value}${c.unit}`; show(); el.addEventListener('input',()=>{c.onv(+el.value); show();}); }
+}
+$('#btnPause').addEventListener('click',()=>{ S.paused=!S.paused; $('#btnPause').textContent = S.paused?'Weiter':'Pause'; });
+$('#btnReset').addEventListener('click',()=>resetSim());
+
+/* ---------- readouts ---------- */
+const kmh = v=>Math.round(v*3.6);
+let smooth = null;
+function updateReadouts(){
+  if(!mp) return;
+  const d = disc(), {f,l} = bodyFrame();
+  const air = airMean();
+  const rel = S.vel.clone().sub(S.mode==='free'?air:v3());   // motion relative to the air mass (tunnel: relative to tunnel)
+  const hz = v3(rel.x,0,rel.z);
+  const cur = {fall: -S.vel.y, fwd: hz.dot(f), left: hz.dot(l), yaw: S.omega.y, ang: last.ang};
+  if(!smooth) smooth = {...cur}; else for(const k in cur) smooth[k] += (cur[k]-smooth[k])*.25;
+  const turnSign = Math.sign(f.clone().cross(l).y) || 1;
+  const turn = smooth.yaw*turnSign/DEG; // + = Linksdrehung
+  const driftV = Math.hypot(smooth.fwd, smooth.left);
+
+  if(S.mode==='free'){
+    $('#hFall').textContent = `${kmh(smooth.fall)} km/h`; $('#hFallS').textContent = `${(smooth.fall).toFixed(0)} m/s`;
+  } else {
+    const vy = S.vel.y; $('#hFall').textContent = Math.abs(vy)<.15 ? 'schwebt' : (vy>0?`steigt ${vy.toFixed(1)}`:`sinkt ${(-vy).toFixed(1)}`)+(Math.abs(vy)<.15?'':' m/s');
+    $('#hFallS').textContent = S.pos.y<.5 ? 'liegt auf dem Netz' : `Höhe ${S.pos.y.toFixed(1)} m`;
+  }
+  let dirTxt = 'kaum';
+  if(driftV*3.6 >= 2){ const parts=[]; const fw=smooth.fwd, lf=smooth.left;
+    if(Math.abs(fw) > Math.abs(lf)*.4) parts.push(fw>0?'vorwärts':'rückwärts');
+    if(Math.abs(lf) > Math.abs(fw)*.4) parts.push(lf>0?'nach links':'nach rechts');
+    dirTxt = parts.join(', '); }
+  $('#hDrift').textContent = `${kmh(driftV)} km/h`; $('#hDriftS').textContent = dirTxt;
+  $('#hTurn').textContent = `${Math.abs(turn)<1?0:Math.round(Math.abs(turn))}°/s`;
+  $('#hTurnS').textContent = Math.abs(turn)<3 ? 'stabil' : (turn>0?'Linksdrehung':'Rechtsdrehung') + (Math.abs(turn)>=3 ? ` · ${(360/Math.abs(turn)).toFixed(1)} s/Umdr.` : '');
+
+  // tilt
+  const b = d.refUp.clone().applyQuaternion(S.q), uh = last.uhat;
+  const off = b.clone().sub(uh.clone().multiplyScalar(b.dot(uh)));
+  const tiltDeg = smooth.ang/DEG;
+  $('#rTilt').innerHTML = `${Math.round(tiltDeg)}<small>°</small>`;
+  let lean = ({belly:'liegt flach im Wind', back:'liegt flach auf dem Rücken', sit:'sitzt aufrecht im Wind', hd:'kopfüber in Linie mit dem Wind', stand:'steht aufrecht im Wind', track:'hält den Track-Winkel'})[S.disc];
+  if(tiltDeg>2){ const a=off.dot(f), c=off.dot(l), ps=[];
+    if(Math.abs(a)>Math.abs(c)*.4) ps.push(a>0?d.lean.fwd[0]:d.lean.fwd[1]);
+    if(Math.abs(c)>Math.abs(a)*.4) ps.push(c>0?d.lean.left[0]:d.lean.left[1]);
+    lean = ps.join(', '); }
+  if(tiltDeg>70) lean = 'kippt aus der Lage';
+  $('#rTiltS').textContent = lean;
+
+  // equilibrium speed from vertical drag at current shape
+  const Fv = last.F.dot(last.uhat), V = last.V;
+  const cda = Fv/(.5*RHO*V*V);
+  const veq = cda>0 ? Math.sqrt(2*mp.M*G/(RHO*cda)) : 0;
+  $('#rEqK').textContent = S.mode==='free' ? 'Gleichgewicht' : 'Schwebt bei';
+  $('#rEq').innerHTML = `${kmh(veq)}<small>km/h</small>`;
+  $('#rEqS').textContent = `Widerstandsfläche ${cda.toFixed(2).replace('.',',')} m²`;
+
+  // stability
+  const load = last.spring/last.cap;
+  let st, col, sub, bar;
+  if(tiltDeg>70){ st='kippt'; col='--bad'; sub='außer Kontrolle'; bar=1; }
+  else if(S.ctrl<.02){ const ok = tiltDeg<15 && Math.abs(turn)<20; st= ok?'stabil':'instabil'; col= ok?'--ok':'--bad'; sub= ok?'fliegt ohne Korrektur':'ohne Korrektur'; bar= Math.min(1,tiltDeg/70); }
+  else { bar=Math.min(1,load); sub=`Korrektur ${Math.round(bar*100)} %`;
+    if(load<.3){ st='ruhig'; col='--ok'; } else if(load<.75){ st='aktiv'; col='--warn'; } else { st='grenzwertig'; col='--bad'; } }
+  const hs=$('#hStab'); hs.textContent=st; hs.style.color=`var(${col})`;
+  const hb=$('#hStabBar'); hb.style.width=`${Math.round(bar*100)}%`; hb.style.color=`var(${col})`;
+  $('#hStabS').textContent=sub;
+
+  // why
+  const items = [];
+  const per = last.per;
+  const Fh = v3(last.F.x,0,last.F.z);
+  if(driftV*3.6>=2 && Fh.length()>1){
+    const dir = Fh.clone().normalize();
+    const contrib = per.map(o=>({n:fig.segs[o.i].name, v:o.f.x*dir.x+o.f.z*dir.z})).filter(o=>o.v>0).sort((a,b)=>b.v-a.v);
+    const sum = contrib.reduce((a,o)=>a+o.v,0);
+    if(contrib.length){ const top=contrib[0]; items.push(['D',`Drift <b>${dirTxt}</b>: die meiste Schubkraft kommt vom ${dat(top.n)} (${Math.round(top.v/sum*100)} %)${contrib[1]?`, danach ${dat(contrib[1].n)}`:''}.`]); }
+  } else items.push(['D','Kein nennenswerter Drift: die seitlichen Kräfte heben sich gegenseitig auf.']);
+  if(Math.abs(turn)>=3){
+    const ax = last.uhat;
+    const contrib = per.map(o=>({n:fig.segs[o.i].name, v:o.tq.dot(ax)*Math.sign(S.omega.dot(ax))})).filter(o=>o.v>0).sort((a,b)=>b.v-a.v);
+    if(contrib.length) items.push(['T',`<b>${turn>0?'Linksdrehung':'Rechtsdrehung'}</b>: das stärkste Drehmoment erzeugt der ${contrib[0].n}${contrib[1]?`, unterstützt vom ${dat(contrib[1].n)}`:''}.`]);
+  } else items.push(['T','Keine Drehung: linke und rechte Körperhälfte erzeugen gleich viel Drehmoment.']);
+  if(tiltDeg>3 && tiltDeg<=70){ items.push(['N', driftV*3.6>=2 ? `Neigung ${Math.round(tiltDeg)}° (${lean}). In Schräglage drückt die Luft den Körper zur Seite, das verstärkt den Drift.` : `Neigung ${Math.round(tiltDeg)}° (${lean}). Die Haltung will kippen, die Korrektur fängt es ab.`]); }
+  if(S.mode==='free') items.push(['F',`Fallrate hängt an der Widerstandsfläche: ${cda.toFixed(2).replace('.',',')} m² bei ${S.weight} kg ergeben etwa ${kmh(veq)} km/h.`]);
+  $('#why').innerHTML = items.map(([i,t])=>`<li><span class="ic">${i}</span><span>${t}</span></li>`).join('');
+
+  // altitude / tunnel
+  if(S.mode==='free'){ $('#altK').textContent='Höhe'; $('#altV').innerHTML = `${Math.max(0,Math.round(S.pos.y/10)*10).toLocaleString('de-DE')}<small>m</small>`; }
+  else { $('#altK').textContent='Windtunnel'; $('#altV').innerHTML = `${S.tunnelV}<small>km/h</small>`; }
+  drawMini();
+}
+function dat(n){ // "linker Unterarm" -> "linken Unterarm" (Dativ nach "vom")
+  return n.replace(/^linker /,'linken ').replace(/^rechter /,'rechten ');
+}
+
+/* minimap */
+function drawMini(){
+  const c = $('#mini'), g = c.getContext('2d'), W=c.width, H=c.height;
+  g.clearRect(0,0,W,H);
+  const fg=cssv('--fg'), mu=cssv('--muted'), ln=cssv('--line'), ac=cssv('--accent');
+  g.font = `500 22px ${cssv('--f-body')}`; g.fillStyle=mu;
+  const {f} = bodyFrame();
+  if(S.mode==='tunnel'){
+    $('#miniHint').textContent='Position im Tunnel von oben. Die Wand fängt dich ab.';
+    const cx=W/2, cy=H/2, sc=(H*.42)/2.1;
+    g.strokeStyle=ln; g.lineWidth=2; g.beginPath(); g.arc(cx,cy,2.1*sc,0,7); g.stroke();
+    g.setLineDash([6,6]); g.beginPath(); g.arc(cx,cy,1.7*sc,0,7); g.stroke(); g.setLineDash([]);
+    drawBody(g, cx+S.pos.x*sc, cy+S.pos.z*sc, f, ac, fg);
+    g.fillText('Ø 4,2 m', 14, H-14);
+    return;
+  }
+  $('#miniHint').textContent='Flugspur über Grund (letzte 40 s), Norden oben. Der Pfeil zeigt deine Blickrichtung, die gestrichelte Linie den Höhenwind.';
+  const tr = S.track; const cx=W/2, cy=H/2;
+  let ext = 30; for(const p of tr){ ext=Math.max(ext, Math.abs(p[0]-S.pos.x)*1.15, Math.abs(p[1]-S.pos.z)*1.15*W/H); }
+  const sc = (W/2-16)/ext;
+  g.strokeStyle=ln; g.lineWidth=1;
+  const step = ext>200?100:ext>80?50:ext>40?20:10;
+  for(let x=-Math.floor(ext/step)*step; x<=ext; x+=step){ g.beginPath(); g.moveTo(cx+x*sc,0); g.lineTo(cx+x*sc,H); g.stroke(); }
+  for(let z=-Math.floor(ext/step)*step; z<=ext; z+=step){ g.beginPath(); g.moveTo(0,cy+z*sc); g.lineTo(W,cy+z*sc); g.stroke(); }
+  g.fillText(`Raster ${step} m`, 14, H-14);
+  g.fillText('N ↑', W-46, 28);
+  if(tr.length>1){ g.strokeStyle=ac; g.lineWidth=3; g.beginPath(); tr.forEach((p,i)=>{ const x=cx+(p[0]-S.pos.x)*sc, y=cy+(p[1]-S.pos.z)*sc; i?g.lineTo(x,y):g.moveTo(x,y); }); g.stroke(); }
+  if(S.wind>0){ const a=airMean().normalize(), x0=60-a.x*34, y0=70-a.z*34, x1=60+a.x*34, y1=70+a.z*34;
+    g.strokeStyle=mu; g.fillStyle=mu; g.lineWidth=3; g.setLineDash([7,6]); g.beginPath(); g.moveTo(x0,y0); g.lineTo(x1,y1); g.stroke(); g.setLineDash([]);
+    const ang=Math.atan2(a.z,a.x); g.beginPath(); g.moveTo(x1+Math.cos(ang)*10,y1+Math.sin(ang)*10); g.lineTo(x1+Math.cos(ang+2.5)*12,y1+Math.sin(ang+2.5)*12); g.lineTo(x1+Math.cos(ang-2.5)*12,y1+Math.sin(ang-2.5)*12); g.fill();
+    g.fillText(`Wind ${S.wind} km/h`, 14, 26); }
+  drawBody(g,cx,cy,f,ac,fg);
+}
+function drawBody(g,x,y,f,ac,fg){
+  g.save(); g.translate(x,y); g.rotate(Math.atan2(f.z,f.x));
+  g.fillStyle=fg; g.beginPath(); g.moveTo(16,0); g.lineTo(-10,9); g.lineTo(-5,0); g.lineTo(-10,-9); g.closePath(); g.fill();
+  g.restore();
+}
+
+/* ---------- particles update ---------- */
+const _t1=v3(), _t2=v3(), _t3=v3();
+function updateParticles(dtv){
+  flow.visible = $('#tFlow').checked;
+  if(!flow.visible) return;
+  const wake = $('#tWake').checked;
+  const free = S.mode==='free';
+  const base = free ? airBase.clone().add(gust).sub(S.vel) : airBase.clone().add(gust);
+  const V = base.length()||1, uh = base.clone().divideScalar(V);
+  const Fv = Math.max(0,last.F.dot(last.uhat)); const cda = Fv/(.5*RHO*Math.max(1,last.V*last.V));
+  const Rb = Math.min(1.2, Math.max(.45, Math.sqrt(Math.max(cda,.05)/Math.PI)*1.6));
+  const VIS = .07, t=S.t, turb=S.turb;
+  const body = free ? v3() : S.pos;
+  for(let i=0;i<NP;i++){
+    const o=i*3; _t1.set(pp[o]-body.x, pp[o+1]-body.y, pp[o+2]-body.z);
+    const s = _t1.dot(uh);
+    _t2.copy(_t1).addScaledVector(uh,-s); const d=_t2.length()||1e-4;
+    _t3.copy(base);
+    let slow = 0;
+    if(wake){
+      if(s>-.2 && d<1.7*Rb){ const def = Math.exp(-Math.max(0,s)/3.2)*(1-(d/(1.7*Rb))**2); slow=def;
+        _t3.multiplyScalar(1-.65*def);
+        const tang = uh.clone().cross(_t2).divideScalar(d);
+        const sw = def*V*(.22+.55*turb)*Math.sin(s*2.4 - t*7 + pph[i]);
+        _t3.addScaledVector(tang, sw).addScaledVector(_t2, def*V*.12*Math.sin(s*1.7 - t*5 + pph[i]*2)/d);
+      } else if(s>-1.3 && s<=-.2 && d<1.4*Rb){ const k=(1-d/(1.4*Rb))*(1+s/1.3); _t3.addScaledVector(_t2, V*.45*k/d); _t3.multiplyScalar(1-.3*k); slow=.3*k; }
+    }
+    if(turb>0){ const A=turb*V*.1; _t3.x+=A*Math.sin(t*3.1+pph[i]*7); _t3.y+=A*.5*Math.sin(t*2.3+pph[i]*5); _t3.z+=A*Math.sin(t*2.7+pph[i]*3); }
+    pp[o]+=_t3.x*dtv*VIS; pp[o+1]+=_t3.y*dtv*VIS; pp[o+2]+=_t3.z*dtv*VIS;
+    // wrap
+    if(free){
+      for(const [k,h] of [[0,FH.x],[1,FH.y],[2,FH.x]]){ if(pp[o+k]>h) pp[o+k]-=2*h; else if(pp[o+k]<-h) pp[o+k]+=2*h; }
+    } else {
+      if(pp[o+1]>7.2) { pp[o+1]-=7.5; } else if(pp[o+1]<-.3) pp[o+1]+=7.5;
+      const r=Math.hypot(pp[o],pp[o+2]); if(r>2.05){ const a=Math.random()*6.28, rr=Math.sqrt(Math.random())*2; pp[o]=Math.cos(a)*rr; pp[o+2]=Math.sin(a)*rr; }
+    }
+    const sp = _t3.length(), ratio = Math.min(1, sp/V);
+    const len = .1 + .32*ratio;
+    const ox = free? S.pos.x:0, oy = free? S.pos.y:0, oz = free? S.pos.z:0;
+    const j=i*6;
+    lpos[j]=pp[o]+ox; lpos[j+1]=pp[o+1]+oy; lpos[j+2]=pp[o+2]+oz;
+    lpos[j+3]=lpos[j]-_t3.x/sp*len; lpos[j+4]=lpos[j+1]-_t3.y/sp*len; lpos[j+5]=lpos[j+2]-_t3.z/sp*len;
+    const m = Math.min(1, slow*1.6 + (1-ratio)*.6);
+    const r_=colWindFast.r+(colWindSlow.r-colWindFast.r)*m, g_=colWindFast.g+(colWindSlow.g-colWindFast.g)*m, b_=colWindFast.b+(colWindSlow.b-colWindFast.b)*m;
+    lcol[j]=r_; lcol[j+1]=g_; lcol[j+2]=b_;
+    lcol[j+3]=r_+(colBgFade.r-r_)*.85; lcol[j+4]=g_+(colBgFade.g-g_)*.85; lcol[j+5]=b_+(colBgFade.b-b_)*.85;
+  }
+  lgeo.attributes.position.needsUpdate = true; lgeo.attributes.color.needsUpdate = true;
+}
+
+/* ---------- arrows ---------- */
+function updateArrows(){
+  const on = $('#tForces').checked;
+  const W = mp.M*G;
+  last.per.forEach((o,k)=>{ const a=arrows[k]; if(!a) return; const m=o.f.length(); a.visible = on && m>W*.004;
+    if(a.visible){ a.position.copy(o.c); a.setDirection(o.f.clone().divideScalar(m)); const L=Math.min(2.2, m/W*5); a.setLength(L, Math.min(.12,L*.35), Math.min(.07,L*.2)); } });
+  const air = airMean();
+  const rel = S.vel.clone().sub(S.mode==='free'?air:v3()); rel.y=0;
+  const sp = rel.length();
+  driftArrow.visible = sp>.6;
+  if(driftArrow.visible){ driftArrow.position.copy(S.pos).add(v3(0,-.9,0).applyQuaternion(dispQ.clone().invert())); driftArrow.setDirection(rel.clone().divideScalar(sp)); const L=Math.min(2.6,.25+sp*.12); driftArrow.setLength(L,.18,.12); }
+}
+
+/* ---------- loop ---------- */
+let prev = performance.now(), uiT = 0;
+function frame(now){
+  const dtR = Math.min(.05, (now-prev)/1000); prev = now;
+  const slow = $('#tSlow').checked ? .25 : 1;
+  if(!S.paused){
+    if(poseLerp(Math.min(1, dtR*5))) rebuildMass(); else applyPose(fig.J, cur);
+    const dt = dtR*slow, n = 5;
+    for(let i=0;i<n;i++){ simStep(dt/n); S.t += dt/n; }
+    if(S.mode==='free'){
+      if(S.pos.y < 1200){ S.pos.y = 4000; S.track=[]; $('#flash').textContent='Neuer Sprung ab 4000 m'; setTimeout(()=>$('#flash').textContent='',2500); }
+      S.trackT += dt; if(S.trackT>.25){ S.trackT=0; S.track.push([S.pos.x,S.pos.z]); if(S.track.length>160) S.track.shift(); }
+    }
+    updateParticles(dtR*slow);
+  }
+  root.position.copy(S.pos); root.quaternion.copy(S.q);
+  updateArrows();
+  applyHighlight(now);
+  // camera
+  // wind frame: rotate the scene so the mean relative wind points straight up
+  const wv = airBase.clone().sub(S.vel); if(wv.lengthSq()>.01){ const qT = new THREE.Quaternion().setFromUnitVectors(wv.normalize(), v3(0,1,0)); dispQ.slerp(qT, Math.min(1, dtR*4)); }
+  if($('#tFollow').checked){ const f=bodyFrame().f.applyQuaternion(dispQ); const h=Math.atan2(f.x,f.z); if(cam.yawPrev!==null){ let dh=h-cam.yawPrev; if(dh>Math.PI) dh-=2*Math.PI; if(dh<-Math.PI) dh+=2*Math.PI; cam.theta+=dh; } cam.yawPrev=h; } else cam.yawPrev=null;
+  cam.tgt.lerp(S.mode==='free'? S.pos : v3(S.pos.x*.6, Math.max(1.6,S.pos.y), S.pos.z*.6), S.mode==='free'?1:.08);
+  disp.quaternion.copy(dispQ); disp.position.copy(cam.tgt).applyQuaternion(dispQ).negate();
+  gravArrow.position.copy(S.pos).add(v3(1.4,.8,0).applyQuaternion(dispQ.clone().invert())); gravArrow.setDirection(v3(0,-1,0));
+  gravArrow.visible = S.mode==='free' && $('#tGrav').checked;
+  const sp = Math.sin(cam.phi);
+  camera.position.set(cam.dist*sp*Math.sin(cam.theta), cam.dist*Math.cos(cam.phi), cam.dist*sp*Math.cos(cam.theta));
+  camera.up.set(0,1,0); camera.lookAt(0,0,0);
+  renderer.render(scene, camera);
+  uiT += dtR; if(uiT>.15){ uiT=0; updateReadouts(); }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- boot ---------- */
+renderAir(); refreshTheme(); setDisc('belly'); resize();
+requestAnimationFrame(t=>{ prev=t; frame(t); });
+})();
+</script>
+
+</body>
+</html>
