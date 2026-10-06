@@ -24,7 +24,7 @@ window.BODYFLIGHT_DEFAULTS = {
     windFrom: 250,            // Wind kommt aus … Grad (0 = Nord, 90 = Ost)
   },
 
-  turbulence: 40,             // Turbulenz in %, gilt für Freifall und Windtunnel
+  turbulence: 30,             // Turbulenz in %, gilt für Freifall und Windtunnel
 
   tunnel: {
     airSpeed: 'auto',         // km/h, oder 'auto' = Schwebegeschwindigkeit der aktuellen Disziplin
