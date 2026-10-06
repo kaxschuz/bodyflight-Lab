@@ -489,7 +489,7 @@ const cssv = n=>getComputedStyle(document.documentElement).getPropertyValue(n).t
 
 /* ---------- state ---------- */
 const S = { disc:'belly', mode:'free', pos:v3(0,4000,0), vel:v3(0,-50,0), q:new THREE.Quaternion(), omega:v3(),
-  t:0, paused:false, weight:85, ctrl:.05, wind:15, windDir:250, turb:.10, tunnelV:200, tilt:0, tiltDir:0, track:[], trackT:0 };
+  t:0, paused:false, weight:85, ctrl:0, wind:15, windDir:250, turb:.10, tunnelV:200, tilt:0, tiltDir:0, track:[], trackT:0 };
 let tgt = clonePose(DISC.belly.neutral), cur = clonePose(tgt);
 let activePreset = 0;
 
