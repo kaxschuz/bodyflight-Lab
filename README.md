@@ -14,6 +14,10 @@ Interaktive 3D-Visualisierung der Körperhaltung im Freifall. Ein Springer in Ba
 
 Einfach `index.html` im Browser öffnen. Keine Installation nötig, three.js (r128) wird von cdnjs geladen.
 
+## Startwerte anpassen
+
+Alle Werte, mit denen die App startet, stehen in `defaults.js`: Disziplin und Modus, Absprunghöhe, Gewicht, aktive Korrektur, Wind, Turbulenz, Windtunnel, Anzeige-Schalter, Kamera und die Grundhaltung jeder Disziplin. Die Datei muss neben `index.html` liegen.
+
 ## Modell
 
 Jedes Körperteil wird einzeln angeströmt: Gliedmaßen als Zylinder (Querstromprinzip), Rumpf und Becken als Quader, Kopf als Kugel. Daraus ergeben sich Kräfte und Drehmomente, die einen starren Körper mit Masse und Trägheit bewegen. Der Regler „Aktive Korrektur“ steht für die Ausgleichsbewegungen des Springers.
