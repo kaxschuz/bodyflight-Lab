@@ -478,7 +478,7 @@ function computeTrim(root, skel, segs, d){
   const Fp = r.F.clone().addScaledVector(up, -r.F.dot(up));
   const Fb = Fp.applyQuaternion(inv);
   if(d.trimLateral){ Fb.y = 0; Fb.z = 0; }   // tracking keeps its forward lift, only sideways force is calibrated away
-  return {Fb, Tb: r.T.clone().applyQuaternion(inv)};
+  return {Fb, Tb: r.T.clone().applyQuaternion(inv), cda: Math.max(.05, r.F.dot(up)/(.5*RHO))};
 }
 const YAW_DAMP = 30;
 // </model>
@@ -489,7 +489,7 @@ const cssv = n=>getComputedStyle(document.documentElement).getPropertyValue(n).t
 
 /* ---------- state ---------- */
 const S = { disc:'belly', mode:'free', pos:v3(0,4000,0), vel:v3(0,-50,0), q:new THREE.Quaternion(), omega:v3(),
-  t:0, paused:false, weight:85, ctrl:.6, wind:15, windDir:250, turb:.25, tunnelV:200, tilt:0, tiltDir:0, track:[], trackT:0 };
+  t:0, paused:false, weight:85, ctrl:.05, wind:15, windDir:250, turb:.10, tunnelV:200, tilt:0, tiltDir:0, track:[], trackT:0 };
 let tgt = clonePose(DISC.belly.neutral), cur = clonePose(tgt);
 let activePreset = 0;
 
@@ -613,7 +613,8 @@ function simStep(dt){
   updateGust();
   const res = aeroForces(S, fig.segs, airAt);
   const uC = airAt(S.pos,-1).sub(S.vel); const V = uC.length()||1; const uhat = uC.clone().divideScalar(V);
-  if(trim){ res.F.addScaledVector(trim.Fb.clone().applyQuaternion(S.q), -V*V); res.T.addScaledVector(trim.Tb.clone().applyQuaternion(S.q), -V*V); }
+  const tr = curTrim();
+  if(tr){ res.F.addScaledVector(tr.Fb.clone().applyQuaternion(S.q), -V*V); res.T.addScaledVector(tr.Tb.clone().applyQuaternion(S.q), -V*V); }
   const M = mp.M;
   const acc = res.F.clone().divideScalar(M); acc.y -= G;
   if(S.mode==='tunnel'){
@@ -624,7 +625,7 @@ function simStep(dt){
   }
   S.vel.addScaledVector(acc, dt); S.pos.addScaledVector(S.vel, dt);
   // active stabilisation: the flyer keeps the reference axis aligned with the relative wind
-  const K = 1300*S.ctrl, cap = 40 + 520*S.ctrl;
+  const ctrl = effCtrl(), K = 1300*ctrl, cap = 40 + 520*ctrl;
   const b = disc().refUp.clone().applyQuaternion(S.q);
   const cr = b.clone().cross(uhat), sn = cr.length(), ang = Math.atan2(sn, b.dot(uhat));
   const spring = sn>1e-6 ? cr.multiplyScalar(K*ang/sn) : v3();
@@ -708,13 +709,54 @@ function applyHighlight(now){
 /* ---------- UI: discipline, presets, joints ---------- */
 const DISC_TABS = [['belly','Bauchlage'],['back','Rückenlage'],['sit','Sitfly'],['hd','Headdown'],['stand','Standup'],['track','Tracking']];
 $('#disc').innerHTML = DISC_TABS.map(([k,n])=>k?`<button data-d="${k}" aria-pressed="${k===S.disc}">${n}</button>`:`<button disabled title="Kommt als Nächstes">${n}<span class="soon">bald</span></button>`).join('');
-$('#disc').addEventListener('click', e=>{ const b=e.target.closest('button[data-d]'); if(!b) return; setDisc(b.dataset.d); });
+$('#disc').addEventListener('click', e=>{ const b=e.target.closest('button[data-d]'); if(!b || b.dataset.d===S.disc) return; setDisc(b.dataset.d, true); });
 
-function setDisc(k){
+// trim and hover speed of a discipline's neutral pose, without disturbing the current pose
+function neutralAeroFor(k){
+  const saved = clonePose(cur);
+  physFrame(); applyPose(fig.J, DISC[k].neutral); massProps(root, fig.skel, fig.segs, S.weight);
+  const t = computeTrim(root, fig.skel, fig.segs, DISC[k]);
+  physFrame(); applyPose(fig.J, saved); mp = massProps(root, fig.skel, fig.segs, S.weight);
+  return t;
+}
+const hoverKmh = t => Math.round(Math.min(330, Math.max(120, Math.sqrt(2*S.weight*G/(RHO*t.cda))*3.6)));
+// smooth change of discipline: pose, calibration and (in the tunnel) air speed blend over TR_DUR seconds
+const TR_DUR = 1.8;
+let trans = null, tunnelTarget = null;
+function curTrim(){
+  if(!trans) return trim;
+  const a = Math.min(1, trans.t/TR_DUR), e = a*a*(3-2*a);
+  return {Fb: trans.from.Fb.clone().lerp(trans.to.Fb, e), Tb: trans.from.Tb.clone().lerp(trans.to.Tb, e)};
+}
+// while changing discipline the flyer actively turns into the new orientation, then hands back to the slider value
+function effCtrl(){
+  if(!trans) return S.ctrl;
+  const a = trans.t/(TR_DUR+1.2), boost = a<.6 ? .6 : .6*(1-(a-.6)/.4);
+  return Math.max(S.ctrl, Math.max(0, boost));
+}
+function stepTransition(dt){
+  if(trans){ trans.t += dt; if(trans.t >= TR_DUR+1.2){ trim = trans.to; trans = null; } }
+  if(tunnelTarget!==null){
+    const d = tunnelTarget - S.tunnelV; S.tunnelV += Math.sign(d)*Math.min(Math.abs(d), 60*dt);
+    if(Math.abs(tunnelTarget-S.tunnelV)<.5){ S.tunnelV = tunnelTarget; tunnelTarget = null; }
+    airBase = airMean();
+    const el = $('#cTV'); if(el){ el.value = Math.round(S.tunnelV); $('#o-cTV').textContent = `${Math.round(S.tunnelV)} km/h`; }
+  }
+}
+function setDisc(k, smooth){
   S.disc = k;
   document.querySelectorAll('#disc button[data-d]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.d===k));
-  tgt = clonePose(DISC[k].neutral); cur = clonePose(tgt); activePreset = 0; $('#linkArms').checked = true; $('#linkLegs').checked = true;
-  renderPresets(); syncSliders(); rebuildMass(); trim = computeTrim(root, fig.skel, fig.segs, DISC[k]); resetSim(); setView('side'); cam.phi = 70*DEG; cam.theta += 35*DEG;
+  tgt = clonePose(DISC[k].neutral); activePreset = 0; $('#linkArms').checked = true; $('#linkLegs').checked = true;
+  renderPresets(); syncSliders();
+  const next = neutralAeroFor(k);
+  if(!smooth){
+    cur = clonePose(tgt); rebuildMass(); trim = next; trans = null;
+    resetSim(); setView('side'); cam.phi = 70*DEG; cam.theta += 35*DEG;
+    return;
+  }
+  trans = {t:0, from: curTrim() || next, to: next};
+  if(S.mode==='tunnel') tunnelTarget = hoverKmh(next);
+  S.headingRef = null;
 }
 function renderPresets(){
   const d = disc();
@@ -768,14 +810,16 @@ function renderAir(){
   const list = AIR[S.mode];
   $('#airCtl').innerHTML = list.map(c=>c.html).join('');
   for(const c of list){ const el=$('#'+c.id), o=$('#o-'+c.id);
-    if(c.id==='cTurb'||c.id==='cTurb2') el.value = Math.round(S.turb*100);
+    const curVal = {cTurb:S.turb*100, cTurb2:S.turb*100, cTV:S.tunnelV, cTilt:S.tilt, cTiltDir:S.tiltDir, cWind:S.wind, cWindDir:S.windDir}[c.id];
+    if(curVal!==undefined) el.value = Math.round(curVal);
     const show=()=>{ const v=+el.value; o.textContent = c.id==='cWindDir' ? `${v}° · ${compass(v)}` : `${v}${c.unit}`; };
     show(); el.addEventListener('input',()=>{ c.onv(+el.value); show(); airBase = airMean(); }); }
   $('#airHint').textContent = S.mode==='free'
     ? 'Höhenwind trägt dich über Grund, ändert aber nicht, wie dich die Luft anströmt. Deine Haltung bestimmt die Bewegung relativ zur Luft.'
-    : 'Im Tunnel strömt die Luft von unten. Ist sie schneller als deine Fallrate, steigst du, ist sie langsamer, sinkst du aufs Netz.';
+    : 'Im Tunnel strömt die Luft von unten. Beim Wechsel der Disziplin stellt sich die Luftgeschwindigkeit auf deren Schwebegeschwindigkeit ein. Schneller: du steigst, langsamer: du sinkst aufs Netz.';
 }
 $('#mode').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return; S.mode=b.dataset.m;
+  if(S.mode==='tunnel'){ S.tunnelV = hoverKmh(trans ? trans.to : trim); tunnelTarget = null; }
   document.querySelectorAll('#mode button').forEach(x=>x.setAttribute('aria-pressed', x===b)); renderAir(); resetSim(); });
 {
   const J = [ctlRow('cW','Gewicht mit Ausrüstung',55,125,1,S.weight,' kg',v=>{S.weight=v; rebuildMass();}), ctlRow('cCtrl','Aktive Korrektur',0,100,1,S.ctrl*100,' %',v=>S.ctrl=v/100)];
@@ -1077,7 +1121,8 @@ function frame(now){
   const dtR = Math.min(.05, (now-prev)/1000); prev = now;
   const slow = $('#tSlow').checked ? .25 : 1;
   if(!S.paused){
-    if(poseLerp(Math.min(1, dtR*5))) rebuildMass(); else applyPose(fig.J, cur);
+    if(poseLerp(Math.min(1, dtR*(trans ? 2.4 : 5)))) rebuildMass(); else applyPose(fig.J, cur);
+    stepTransition(dtR*slow);
     const dt = dtR*slow, n = 5;
     for(let i=0;i<n;i++){ simStep(dt/n); S.t += dt/n; }
     if(S.mode==='free'){
