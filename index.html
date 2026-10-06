@@ -224,7 +224,7 @@ input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline
       <h2>Anzeige</h2>
       <label class="toggle"><input type="checkbox" id="tFlow" checked> Wind (Luftstrom)</label>
       <label class="toggle"><input type="checkbox" id="tWake" checked> Verwirbelungen (Nachlauf der Körperteile)</label>
-      <div class="row" id="wakeIntRow"><div class="rl"><label for="cWakeInt">Intensität der Verwirbelungen</label><output id="o-cWakeInt">100 %</output></div><input type="range" id="cWakeInt" min="0" max="200" step="5" value="100"></div>
+      <div class="row" id="wakeIntRow"><div class="rl"><label for="cWakeInt">Intensität der Verwirbelungen</label><output id="o-cWakeInt">25 %</output></div><input type="range" id="cWakeInt" min="0" max="200" step="5" value="25"></div>
       <label class="toggle"><input type="checkbox" id="tForces"> Kraftpfeile an jedem Körperteil</label>
       <label class="toggle"><input type="checkbox" id="tSlow"> Zeitlupe</label>
       <label class="toggle"><input type="checkbox" id="tFollow"> Kamera dreht mit</label>
@@ -980,7 +980,7 @@ const VLIFE = 1.6;                                     // life of one eddy in di
 const vcore = new Float32Array(NV*3), vn = new Float32Array(NV*3), vr0 = new Float32Array(NV),
       vth = new Float32Array(NV), vom = new Float32Array(NV), vage = new Float32Array(NV), vseg = new Int16Array(NV), vlife = new Float32Array(NV);
 vage.fill(1e9);
-let vortexSeeded = false, vEmitAcc = 0, vNext = 0, vInt = 1;   // vInt: intensity 0 … 2
+let vortexSeeded = false, vEmitAcc = 0, vNext = 0, vInt = .25;   // vInt: intensity 0 … 2
 const _vq = new THREE.Quaternion(), _va = v3(), _vp = v3(), _vc = v3();
 function emitVortex(fs, per, wsum, Fref){
   const {uh} = fs;
