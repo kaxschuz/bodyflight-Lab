@@ -222,14 +222,14 @@ input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline
     </section>
     <section class="sec">
       <h2>Anzeige</h2>
-      <label class="toggle"><input type="checkbox" id="tFlow" checked> Luftstrom</label>
+      <label class="toggle"><input type="checkbox" id="tFlow" checked> Wind (Luftstrom)</label>
       <label class="toggle"><input type="checkbox" id="tWake" checked> Verwirbelungen hinter dem Körper</label>
       <label class="toggle"><input type="checkbox" id="tForces"> Kraftpfeile an jedem Körperteil</label>
       <label class="toggle"><input type="checkbox" id="tSlow"> Zeitlupe</label>
       <label class="toggle"><input type="checkbox" id="tFollow"> Kamera dreht mit</label>
       <label class="toggle"><input type="checkbox" id="tGrav" checked> Richtung Boden anzeigen</label>
       <p class="hint">Die Ansicht dreht sich immer so, dass die Luft von unten kommt. Driftest oder trackst du, kippt der Boden-Pfeil statt der Strömung.</p>
-      <div class="legend" style="padding:0"><span><span class="dot" style="background:var(--wind-fast)"></span>schnelle Luft</span><span><span class="dot" style="background:var(--wind-slow)"></span>gebremste Luft / Wirbel</span></div>
+      <div class="legend" style="padding:0"><span><span class="dot" style="background:var(--wind-fast)"></span>schnelle Luft</span><span><span class="dot" style="background:var(--wind-slow)"></span>Wirbel</span></div>
     </section>
     <section class="sec">
       <p class="foot">Vereinfachtes Strömungsmodell: jedes Körperteil wird einzeln angeströmt, daraus entstehen Fallrate, Drift und Drehung. Die neutrale Haltung jeder Disziplin ist so kalibriert, dass sie gerade fliegt; jede Abweichung davon zeigt ihre Wirkung. Ersetzt kein Coaching und kein Tunneltraining.</p>
@@ -530,6 +530,15 @@ lgeo.setAttribute('position', new THREE.BufferAttribute(lpos,3));
 lgeo.setAttribute('color', new THREE.BufferAttribute(lcol,3));
 const lmat = new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:.75});
 const flow = new THREE.LineSegments(lgeo, lmat); flow.frustumCulled = false; disp.add(flow);
+/* vortex particles: a separate layer that only lives in the wake behind the body */
+const NV = (window.innerWidth < 700) ? 260 : 480;
+const vp = new Float32Array(NV*3), vph = new Float32Array(NV), vage = new Float32Array(NV);
+const vpos = new Float32Array(NV*6), vcol = new Float32Array(NV*6);
+const vgeo = new THREE.BufferGeometry();
+vgeo.setAttribute('position', new THREE.BufferAttribute(vpos,3));
+vgeo.setAttribute('color', new THREE.BufferAttribute(vcol,3));
+const vmat = new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:.9});
+const vortex = new THREE.LineSegments(vgeo, vmat); vortex.frustumCulled = false; disp.add(vortex);
 const FH = {x:3.4, y:4.5};
 function seedParticle(i, anyY){
   if(S.mode==='free'){ pp[i*3]=(Math.random()*2-1)*FH.x; pp[i*3+1]=anyY?(Math.random()*2-1)*FH.y:-FH.y; pp[i*3+2]=(Math.random()*2-1)*FH.x; }
@@ -590,6 +599,7 @@ function resetSim(){
   else { S.pos.set(0,2.4,0); S.vel.set(0,0,0); }
   S.track = []; S.trackT = 0; S.headingRef = null;
   for(let i=0;i<NP;i++) seedParticle(i,true);
+  vortexSeeded = false;
   tunnel.visible = S.mode==='tunnel';
   { const wv = airBase.clone().sub(S.vel); if(wv.lengthSq()>.01) dispQ.setFromUnitVectors(wv.normalize(), v3(0,1,0)); }
 }
@@ -903,53 +913,106 @@ function drawBody(g,x,y,f,ac,fg){
 }
 
 /* ---------- particles update ---------- */
-const _t1=v3(), _t2=v3(), _t3=v3();
-function updateParticles(dtv){
-  flow.visible = $('#tFlow').checked;
-  if(!flow.visible) return;
-  const wake = $('#tWake').checked;
+const _t1=v3(), _t2=v3(), _t3=v3(), _tg=v3(), _ax=v3(), _ay=v3();
+// shared description of the flow around the body for this frame
+function flowState(){
   const free = S.mode==='free';
   const base = free ? airBase.clone().add(gust).sub(S.vel) : airBase.clone().add(gust);
   const V = base.length()||1, uh = base.clone().divideScalar(V);
   const Fv = Math.max(0,last.F.dot(last.uhat)); const cda = Fv/(.5*RHO*Math.max(1,last.V*last.V));
   const Rb = Math.min(1.2, Math.max(.45, Math.sqrt(Math.max(cda,.05)/Math.PI)*1.6));
+  const body = free ? v3() : S.pos.clone();
+  const off = free ? S.pos.clone() : v3();
+  return {free, base, V, uh, Rb, body, off};
+}
+function updateParticles(dtv){
+  const fs = flowState();
+  updateFlow(fs, dtv);
+  updateVortex(fs, dtv);
+}
+
+/* wind streaks: free stream that bends around the body and slows down behind it, no swirl */
+function updateFlow(fs, dtv){
+  flow.visible = $('#tFlow').checked;
+  if(!flow.visible) return;
+  const {free, base, V, uh, Rb, body, off} = fs;
   const VIS = .07, t=S.t, turb=S.turb;
-  const body = free ? v3() : S.pos;
   for(let i=0;i<NP;i++){
     const o=i*3; _t1.set(pp[o]-body.x, pp[o+1]-body.y, pp[o+2]-body.z);
     const s = _t1.dot(uh);
     _t2.copy(_t1).addScaledVector(uh,-s); const d=_t2.length()||1e-4;
     _t3.copy(base);
     let slow = 0;
-    if(wake){
-      if(s>-.2 && d<1.7*Rb){ const def = Math.exp(-Math.max(0,s)/3.2)*(1-(d/(1.7*Rb))**2); slow=def;
-        _t3.multiplyScalar(1-.65*def);
-        const tang = uh.clone().cross(_t2).divideScalar(d);
-        const sw = def*V*(.22+.55*turb)*Math.sin(s*2.4 - t*7 + pph[i]);
-        _t3.addScaledVector(tang, sw).addScaledVector(_t2, def*V*.12*Math.sin(s*1.7 - t*5 + pph[i]*2)/d);
-      } else if(s>-1.3 && s<=-.2 && d<1.4*Rb){ const k=(1-d/(1.4*Rb))*(1+s/1.3); _t3.addScaledVector(_t2, V*.45*k/d); _t3.multiplyScalar(1-.3*k); slow=.3*k; }
-    }
+    if(s>-1.3 && s<=-.2 && d<1.4*Rb){ const k=(1-d/(1.4*Rb))*(1+s/1.3); _t3.addScaledVector(_t2, V*.45*k/d); _t3.multiplyScalar(1-.3*k); slow=.3*k; }
+    else if(s>-.2 && d<1.7*Rb){ const def = Math.exp(-Math.max(0,s)/3.2)*(1-(d/(1.7*Rb))**2); slow=def*.7;
+      _t3.multiplyScalar(1-.55*def); _t3.addScaledVector(_t2, def*V*.18/d); }
     if(turb>0){ const A=turb*V*.1; _t3.x+=A*Math.sin(t*3.1+pph[i]*7); _t3.y+=A*.5*Math.sin(t*2.3+pph[i]*5); _t3.z+=A*Math.sin(t*2.7+pph[i]*3); }
     pp[o]+=_t3.x*dtv*VIS; pp[o+1]+=_t3.y*dtv*VIS; pp[o+2]+=_t3.z*dtv*VIS;
-    // wrap
     if(free){
       for(const [k,h] of [[0,FH.x],[1,FH.y],[2,FH.x]]){ if(pp[o+k]>h) pp[o+k]-=2*h; else if(pp[o+k]<-h) pp[o+k]+=2*h; }
     } else {
       if(pp[o+1]>7.2) { pp[o+1]-=7.5; } else if(pp[o+1]<-.3) pp[o+1]+=7.5;
       const r=Math.hypot(pp[o],pp[o+2]); if(r>2.05){ const a=Math.random()*6.28, rr=Math.sqrt(Math.random())*2; pp[o]=Math.cos(a)*rr; pp[o+2]=Math.sin(a)*rr; }
     }
-    const sp = _t3.length(), ratio = Math.min(1, sp/V);
+    const sp = _t3.length()||1e-4, ratio = Math.min(1, sp/V);
     const len = .1 + .32*ratio;
-    const ox = free? S.pos.x:0, oy = free? S.pos.y:0, oz = free? S.pos.z:0;
     const j=i*6;
-    lpos[j]=pp[o]+ox; lpos[j+1]=pp[o+1]+oy; lpos[j+2]=pp[o+2]+oz;
+    lpos[j]=pp[o]+off.x; lpos[j+1]=pp[o+1]+off.y; lpos[j+2]=pp[o+2]+off.z;
     lpos[j+3]=lpos[j]-_t3.x/sp*len; lpos[j+4]=lpos[j+1]-_t3.y/sp*len; lpos[j+5]=lpos[j+2]-_t3.z/sp*len;
-    const m = Math.min(1, slow*1.6 + (1-ratio)*.6);
-    const r_=colWindFast.r+(colWindSlow.r-colWindFast.r)*m, g_=colWindFast.g+(colWindSlow.g-colWindFast.g)*m, b_=colWindFast.b+(colWindSlow.b-colWindFast.b)*m;
+    // blue = fast air; turns paler (not orange) where it is slowed, so orange stays reserved for the vortices
+    const m = Math.min(1, slow*1.2 + (1-ratio)*.5);
+    const r_=colWindFast.r+(colBgFade.r-colWindFast.r)*m*.6, g_=colWindFast.g+(colBgFade.g-colWindFast.g)*m*.6, b_=colWindFast.b+(colBgFade.b-colWindFast.b)*m*.6;
     lcol[j]=r_; lcol[j+1]=g_; lcol[j+2]=b_;
     lcol[j+3]=r_+(colBgFade.r-r_)*.85; lcol[j+4]=g_+(colBgFade.g-g_)*.85; lcol[j+5]=b_+(colBgFade.b-b_)*.85;
   }
   lgeo.attributes.position.needsUpdate = true; lgeo.attributes.color.needsUpdate = true;
+}
+
+/* vortices: particles born at the body's edge, spiral downstream in the wake and fade out */
+function seedVortex(i, fs, anyAge){
+  const {uh, Rb} = fs;
+  _ax.set(1,0,0); if(Math.abs(uh.x)>.9) _ax.set(0,0,1); _ax.addScaledVector(uh,-_ax.dot(uh)).normalize(); _ay.copy(uh).cross(_ax);
+  const a = Math.random()*Math.PI*2, r = Rb*(.35+.6*Math.sqrt(Math.random()));
+  const s = anyAge ? Math.random()*3.2 : Math.random()*.3;
+  const o=i*3;
+  vp[o]  = fs.body.x + _ax.x*Math.cos(a)*r + _ay.x*Math.sin(a)*r + uh.x*s;
+  vp[o+1]= fs.body.y + _ax.y*Math.cos(a)*r + _ay.y*Math.sin(a)*r + uh.y*s;
+  vp[o+2]= fs.body.z + _ax.z*Math.cos(a)*r + _ay.z*Math.sin(a)*r + uh.z*s;
+  vph[i] = Math.random()*Math.PI*2; vage[i] = anyAge ? Math.random() : 0;
+}
+let vortexSeeded = false;
+function updateVortex(fs, dtv){
+  vortex.visible = $('#tWake').checked;
+  if(!vortex.visible){ vortexSeeded = false; return; }
+  if(!vortexSeeded){ for(let i=0;i<NV;i++) seedVortex(i, fs, true); vortexSeeded = true; }
+  const {V, uh, Rb, body, off} = fs;
+  const VIS = .07, t=S.t, turb=S.turb;
+  const spin = (.9 + 1.6*turb);           // how hard the wake rolls up
+  for(let i=0;i<NV;i++){
+    const o=i*3; _t1.set(vp[o]-body.x, vp[o+1]-body.y, vp[o+2]-body.z);
+    const s = _t1.dot(uh);
+    _t2.copy(_t1).addScaledVector(uh,-s); const d=_t2.length()||1e-4;
+    if(s>3.6 || s<-.4 || d>2.2*Rb){ seedVortex(i, fs, false); continue; }
+    // slow axial drift + rotation around the wake axis + breathing in/out (vortex shedding)
+    const axial = V*(.18+.25*Math.min(1,s/3));
+    _tg.copy(uh).cross(_t2).divideScalar(d);             // tangential direction
+    const dir = (vph[i] > Math.PI) ? 1 : -1;             // two counter-rotating halves
+    const swirl = V*.55*spin*Math.exp(-s/2.6)*(.6+.4*Math.sin(t*3+vph[i]));
+    const breathe = V*.22*spin*Math.sin(s*2.2 - t*6 + vph[i]);
+    _t3.copy(uh).multiplyScalar(axial).addScaledVector(_tg, dir*swirl).addScaledVector(_t2, breathe/d);
+    if(d < Rb*.25) _t3.addScaledVector(_t2, V*.4/d);    // keep particles off the axis
+    vp[o]+=_t3.x*dtv*VIS; vp[o+1]+=_t3.y*dtv*VIS; vp[o+2]+=_t3.z*dtv*VIS;
+    vage[i] = Math.min(1, s/3.4);
+    const sp = _t3.length()||1e-4, len = .07+.1*Math.min(1,sp/V);
+    const j=i*6;
+    vpos[j]=vp[o]+off.x; vpos[j+1]=vp[o+1]+off.y; vpos[j+2]=vp[o+2]+off.z;
+    vpos[j+3]=vpos[j]-_t3.x/sp*len; vpos[j+4]=vpos[j+1]-_t3.y/sp*len; vpos[j+5]=vpos[j+2]-_t3.z/sp*len;
+    const fade = Math.min(1, vage[i]*1.1)*.85;            // fresh vortices are strong, old ones dissolve
+    const r_=colWindSlow.r+(colBgFade.r-colWindSlow.r)*fade, g_=colWindSlow.g+(colBgFade.g-colWindSlow.g)*fade, b_=colWindSlow.b+(colBgFade.b-colWindSlow.b)*fade;
+    vcol[j]=r_; vcol[j+1]=g_; vcol[j+2]=b_;
+    vcol[j+3]=r_+(colBgFade.r-r_)*.7; vcol[j+4]=g_+(colBgFade.g-g_)*.7; vcol[j+5]=b_+(colBgFade.b-b_)*.7;
+  }
+  vgeo.attributes.position.needsUpdate = true; vgeo.attributes.color.needsUpdate = true;
 }
 
 /* ---------- arrows ---------- */
