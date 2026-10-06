@@ -8,7 +8,7 @@ Interaktive 3D-Visualisierung der Körperhaltung im Freifall. Ein Springer in Ba
 - **Gelenke verstellen:** Rumpf, Kopf, Arme und Beine, links und rechts gekoppelt oder einzeln
 - **Luft:** Freifall mit Höhenwind und Turbulenz oder Windtunnel mit einstellbarer Luftgeschwindigkeit und schräger Anströmung
 - **Anzeige:** Fallrate, Drift, Drehung und Stabilität live, dazu Erklärung, welches Körperteil die Wirkung verursacht
-- **Visualisierung:** Luftstrom, Verwirbelungen im Nachlauf, Kraftpfeile pro Körperteil, Flugspur von oben
+- **Visualisierung:** Luftstrom und Verwirbelungen getrennt schaltbar, Kraftpfeile pro Körperteil, Flugspur von oben. Jedes Körperteil löst Wirbel im Verhältnis zur Kraft aus, die die Luft darauf ausübt. So zeigt der Nachlauf, wo und durch welches Körperteil die Luft gestört wird.
 
 ## Starten
 
